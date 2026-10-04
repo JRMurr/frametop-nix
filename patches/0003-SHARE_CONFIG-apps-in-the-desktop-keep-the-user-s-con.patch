@@ -1,0 +1,280 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: John Murray <5672686+JRMurr@users.noreply.github.com>
+Date: Sun, 4 Oct 2026 11:21:18 -0400
+Subject: [PATCH] SHARE_CONFIG: apps in the desktop keep the user's config
+
+session/config_links.py links ~/.config and ~/.local/state into the desktop's
+own folders, except Plasma's and KWin's files.
+---
+ session/config_links.py       | 116 ++++++++++++++++++++++++++++++++++
+ session/frametop-session.sh   |  10 ++-
+ session/frametop.conf.example |   1 +
+ session/test_config_links.py  |  89 ++++++++++++++++++++++++++
+ 4 files changed, 215 insertions(+), 1 deletion(-)
+ create mode 100755 session/config_links.py
+ create mode 100644 session/test_config_links.py
+
+diff --git a/session/config_links.py b/session/config_links.py
+new file mode 100755
+index 0000000..b6e86eb
+--- /dev/null
++++ b/session/config_links.py
+@@ -0,0 +1,116 @@
++#!/usr/bin/env python3
++"""Give the Frametop desktop the user's config and state, apart from Plasma's own files.
++The session runs it when SHARE_CONFIG=1 is set in ~/.config/frametop.conf.
++
++The session points XDG_CONFIG_HOME at ~/.config/frametop and XDG_STATE_HOME at
++~/.local/state/frametop, so this desktop and the stock one keep their own screen layout,
++panels, and shortcuts. Every app started in the desktop inherits that, though, and would
++otherwise see an empty config (no shell or editor settings, logged out of every app). So at each start,
++everything in the real folder that isn't Plasma's (KEEP_CONFIG, KEEP_STATE) is linked in
++(name -> ../name). A file or folder in the way, made here before, is moved to .replaced/.
++Links whose real entry is gone are removed. Entries the user linked elsewhere are left.
++
++Usage: config_links.py <real dir> <desktop's dir> config|state
++"""
++import os
++import shutil
++import sys
++
++# The desktop's own: what both desktops' Plasma and KWin write for their own screens,
++# panels, input, and session, and what Frametop writes for this one (the decoration in
++# kwinrc, loginMode in ksmserverrc, its shortcuts, ft-floatd's autostart). kdeglobals
++# (theme, fonts) is shared on purpose.
++KEEP_CONFIG = {
++    "autostart", "kactivitymanagerdrc", "kactivitymanagerd-statsrc", "kcminputrc", "kconf_updaterc",
++    "kded5rc", "kded6rc", "kdedefaults", "kglobalshortcutsrc", "khotkeysrc", "ksmserverrc",
++    "kwinoutputconfig.json", "kwinrc", "kwinrulesrc", "plasma-org.kde.plasma.desktop-appletsrc",
++    "plasmashellrc", "powerdevilrc", "powermanagementprofilesrc",
++}
++KEEP_STATE = {"kwinstaterc", "plasmashellstaterc"}
++KEEPS = {"config": KEEP_CONFIG, "state": KEEP_STATE}
++
++REPLACED = ".replaced"  # entries moved out of the way, never deleted
++
++# What an entry in the desktop's folder is.
++OURS = "ours"    # a link to ../<name>, made here
++OTHER = "other"  # a link to anywhere else: the user's, left alone
++REAL = "real"    # a file or folder
++
++# Actions.
++LINK = "link"        # link <name> to ../<name>
++REPLACE = "replace"  # move <name> to .replaced/, then link it
++UNLINK = "unlink"    # remove our link: its real entry is gone
++
++
++def plan(real, local, keep, own):
++    """The actions that make the desktop's folder show the real one's entries.
++
++    real: names in the real folder. local: name -> OURS, OTHER, or REAL for the desktop's
++    folder. keep: the desktop's own names. own: the desktop folder's name in the real one."""
++    skip = set(keep) | {own, REPLACED}
++    actions = []
++    for name in sorted(set(real) - skip):
++        kind = local.get(name)
++        if kind is None:
++            actions.append((LINK, name))
++        elif kind == REAL:
++            actions.append((REPLACE, name))
++    for name in sorted(set(local) - set(real) - skip):
++        if local[name] == OURS:
++            actions.append((UNLINK, name))
++    return actions
++
++
++def link_target(name):
++    return os.path.join("..", name)
++
++
++def kind(path, name):
++    if not os.path.islink(path):
++        return REAL
++    return OURS if os.readlink(path) == link_target(name) else OTHER
++
++
++def free_path(path):
++    """path, or path.1, path.2, ... if it's taken."""
++    if not os.path.lexists(path):
++        return path
++    n = 1
++    while os.path.lexists(f"{path}.{n}"):
++        n += 1
++    return f"{path}.{n}"
++
++
++def sync(real_dir, local_dir, keep):
++    """Apply plan() to the folders. Returns the moves, as (name, where it went)."""
++    real = set(os.listdir(real_dir))
++    local = {n: kind(os.path.join(local_dir, n), n) for n in os.listdir(local_dir)}
++    own = os.path.basename(os.path.normpath(local_dir))
++
++    moved = []
++    for action, name in plan(real, local, keep, own):
++        path = os.path.join(local_dir, name)
++        if action == UNLINK:
++            os.unlink(path)
++            continue
++
++        if action == REPLACE:
++            os.makedirs(os.path.join(local_dir, REPLACED), exist_ok=True)
++            dest = free_path(os.path.join(local_dir, REPLACED, name))
++            shutil.move(path, dest)
++            moved.append((name, dest))
++
++        os.symlink(link_target(name), path)
++    return moved
++
++
++def main():
++    if len(sys.argv) != 4 or sys.argv[3] not in KEEPS:
++        sys.exit(__doc__.split("Usage: ")[1].strip())
++    real_dir, local_dir, which = sys.argv[1:]
++    for name, dest in sync(real_dir, local_dir, KEEPS[which]):
++        print(f"config_links: {name} was the desktop's own; moved to {dest}, now ../{name}")
++
++
++if __name__ == "__main__":
++    main()
+diff --git a/session/frametop-session.sh b/session/frametop-session.sh
+index 1bdda98..9bbc961 100755
+--- a/session/frametop-session.sh
++++ b/session/frametop-session.sh
+@@ -34,7 +34,7 @@ for var in $(compgen -e); do
+ done
+ 
+ conf=$HOME/.config/frametop.conf
+-BACKEND=screens SCREENS=2 WIDTH=1920 HEIGHT=1080 PHYS_WIDTH=1.6 REMOTE=0 FLOAT_SLOTS=8 FLOAT_MARGIN=300
++BACKEND=screens SCREENS=2 WIDTH=1920 HEIGHT=1080 PHYS_WIDTH=1.6 REMOTE=0 FLOAT_SLOTS=8 FLOAT_MARGIN=300 SHARE_CONFIG=0
+ # shellcheck disable=SC1090
+ [ -f "$conf" ] && . "$conf"
+ backend=${FT_BACKEND:-$BACKEND}
+@@ -43,6 +43,7 @@ width=${FT_WIDTH:-$WIDTH}
+ height=${FT_HEIGHT:-$HEIGHT}
+ phys_width=${FT_PHYS_WIDTH:-$PHYS_WIDTH}
+ remote=${FT_REMOTE:-$REMOTE}
++share_config=${FT_SHARE_CONFIG:-$SHARE_CONFIG}
+ # Floating windows (screens backend): KWin gets this many spare outputs after the screens,
+ # and ft-floatd floats a window on each (docs/floating-windows.md). Changing it takes a
+ # desktop restart.
+@@ -184,6 +185,13 @@ export XDG_CONFIG_HOME=$HOME/.config/frametop
+ export XDG_STATE_HOME=$HOME/.local/state/frametop
+ mkdir -p "$XDG_CONFIG_HOME" "$XDG_STATE_HOME"
+ 
++# Apps started here inherit both. With SHARE_CONFIG=1, everything in them but Plasma's own
++# files links to the real folders: the apps keep their config, logins, and history.
++if [ "$share_config" = 1 ]; then
++  "${FRAMETOP_PYTHON:-python3}" "$here/config_links.py" "$HOME/.config" "$XDG_CONFIG_HOME" config || true
++  "${FRAMETOP_PYTHON:-python3}" "$here/config_links.py" "$HOME/.local/state" "$XDG_STATE_HOME" state || true
++fi
++
+ # Remote desktop over VNC: session/remote-desktop.sh captures the desktop with
+ # krdp on 127.0.0.1, and session/vnc-bridge.sh re-serves its primary screen over VNC. krdpserver runs from the container, so KWin can't
+ # match it to an installed app. KWin's permission check for screencast and fake
+diff --git a/session/frametop.conf.example b/session/frametop.conf.example
+index 0d1b17b..71652ad 100644
+--- a/session/frametop.conf.example
++++ b/session/frametop.conf.example
+@@ -9,6 +9,7 @@ PHYS_WIDTH=1.6     # gamescope: panel width in metres, docked
+ REMOTE=0           # 1 = serve the desktop's primary screen over VNC on the tailnet (port 5900; Frametop Remote Access, see README)
+ FLOAT_SLOTS=8      # screens backend: how many windows can float in VR at once (spare outputs; 0 turns it off; restart the desktop after a change)
+ FLOAT_MARGIN=300   # floating windows: pixels around each window on its output, so menus have room past its edges
++SHARE_CONFIG=0     # 1 = apps in the desktop use your normal ~/.config and ~/.local/state (all but Plasma's own files); restart the desktop after a change
+ POINTER=0          # 1 = the mouse drives the universal 3D pointer (ft_pointer driver) instead of a plain mouse
+ POINTER_SENSITIVITY=0.03   # degrees per mouse count
+ POINTER_IDLE=30    # seconds without mouse use before the controllers get their laser back
+diff --git a/session/test_config_links.py b/session/test_config_links.py
+new file mode 100644
+index 0000000..3a148c9
+--- /dev/null
++++ b/session/test_config_links.py
+@@ -0,0 +1,89 @@
++"""Tests for config_links.py. Run: python3 -m pytest session/ (needs pytest and hypothesis)."""
++import os
++
++from hypothesis import given, strategies as st
++
++import config_links as cl
++
++NAMES = st.sampled_from(["fish", "kitty", "kwinrc", "kdeglobals", "vesktop", "frametop", ".keep", cl.REPLACED])
++KINDS = st.sampled_from([cl.OURS, cl.OTHER, cl.REAL])
++OWN = "frametop"
++
++
++def apply_plan(real, local, actions):
++    """The folder's entries after the actions, as plan() means them."""
++    local = dict(local)
++    for action, name in actions:
++        if action == cl.LINK:
++            assert name not in local
++            local[name] = cl.OURS
++        elif action == cl.REPLACE:
++            assert local[name] == cl.REAL
++            local[name] = cl.OURS
++        elif action == cl.UNLINK:
++            assert local[name] == cl.OURS
++            del local[name]
++    return local
++
++
++@given(st.sets(NAMES), st.dictionaries(NAMES, KINDS), st.sets(NAMES))
++def test_skipped_names_untouched(real, local, keep):
++    for _, name in cl.plan(real, local, keep, OWN):
++        assert name not in keep and name not in (OWN, cl.REPLACED)
++
++
++@given(st.sets(NAMES), st.dictionaries(NAMES, KINDS), st.sets(NAMES))
++def test_real_entries_reachable(real, local, keep):
++    after = apply_plan(real, local, cl.plan(real, local, keep, OWN))
++    for name in real - keep - {OWN, cl.REPLACED}:
++        assert after[name] in (cl.OURS, cl.OTHER)
++
++
++@given(st.sets(NAMES), st.dictionaries(NAMES, KINDS), st.sets(NAMES))
++def test_only_our_links_removed(real, local, keep):
++    after = apply_plan(real, local, cl.plan(real, local, keep, OWN))
++    for name, kind in local.items():
++        if kind != cl.OURS or name in keep:
++            assert name in after
++        if kind == cl.OTHER:
++            assert after[name] == cl.OTHER
++
++
++@given(st.sets(NAMES), st.dictionaries(NAMES, KINDS), st.sets(NAMES))
++def test_no_dangling_links(real, local, keep):
++    after = apply_plan(real, local, cl.plan(real, local, keep, OWN))
++    for name, kind in after.items():
++        if kind == cl.OURS and name not in keep | {OWN, cl.REPLACED}:
++            assert name in real
++
++
++@given(st.sets(NAMES), st.dictionaries(NAMES, KINDS), st.sets(NAMES))
++def test_idempotent(real, local, keep):
++    after = apply_plan(real, local, cl.plan(real, local, keep, OWN))
++    assert cl.plan(real, after, keep, OWN) == []
++
++
++def test_sync_on_disk(tmp_path):
++    real = tmp_path / ".config"
++    local = real / OWN
++    (real / "fish").mkdir(parents=True)
++    (real / "fish" / "config.fish").write_text("real")
++    (real / "kwinrc").write_text("stock desktop")
++    (real / "starship.toml").write_text("prompt")
++    local.mkdir()
++    (local / "fish").mkdir()
++    (local / "fish" / "config.fish").write_text("stub")
++    (local / "kwinrc").write_text("frametop")
++    (local / "gone").symlink_to(os.path.join("..", "gone"))
++    (local / cl.REPLACED / "fish").mkdir(parents=True)  # an earlier move's
++
++    moved = cl.sync(str(real), str(local), {"kwinrc"})
++
++    assert (local / "fish" / "config.fish").read_text() == "real"
++    assert os.readlink(local / "starship.toml") == os.path.join("..", "starship.toml")
++    assert (local / "kwinrc").read_text() == "frametop"
++    assert not os.path.lexists(local / "gone")
++    assert not os.path.lexists(local / OWN)
++    assert (local / cl.REPLACED / "fish.1" / "config.fish").read_text() == "stub"
++    assert moved == [("fish", str(local / cl.REPLACED / "fish.1"))]
++    assert cl.sync(str(real), str(local), {"kwinrc"}) == []

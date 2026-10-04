@@ -1,0 +1,117 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: John Murray <5672686+JRMurr@users.noreply.github.com>
+Date: Sun, 4 Oct 2026 11:21:18 -0400
+Subject: [PATCH] Env hooks for host-built programs
+
+FRAMETOP_SCREENS_BIN runs ft-screens on the host instead of the dev container.
+FRAMETOP_PYTHON and FRAMETOP_STARTPLASMA pick the interpreter and Plasma.
+Decoration copy made writable (read-only source). host_command points
+systemd-run at the real session's runtime dir when not in distrobox.
+---
+ display-settings/ft_display_settings.py |  9 ++++++---
+ float/ft-float-apps                     |  2 +-
+ float/ft-floatd                         |  2 +-
+ layout/ft-layout                        |  2 +-
+ session/frametop-session.sh             | 19 ++++++++++++++-----
+ 5 files changed, 23 insertions(+), 11 deletions(-)
+
+diff --git a/display-settings/ft_display_settings.py b/display-settings/ft_display_settings.py
+index e47f051..c2a3bc0 100644
+--- a/display-settings/ft_display_settings.py
++++ b/display-settings/ft_display_settings.py
+@@ -85,10 +85,13 @@ def host_command(*cmd):
+ 
+     distrobox-host-exec reaches the host through the user's real session bus; inside the
+     desktop our DBUS_SESSION_BUS_ADDRESS is the nested session's private one, where it
+-    fails (exit 127, silently)."""
++    fails (exit 127, silently). On the host (the Nix packages) the command runs directly, but
++    systemd-run --user finds the user manager through XDG_RUNTIME_DIR, which the desktop's
++    session points at its own, so both go back to the real session's."""
++    runtime = f"/run/user/{os.getuid()}"
++    bus = f"unix:path={runtime}/bus"
+     if not shutil.which("distrobox-host-exec"):
+-        return list(cmd)
+-    bus = f"unix:path=/run/user/{os.getuid()}/bus"
++        return ["env", f"XDG_RUNTIME_DIR={runtime}", f"DBUS_SESSION_BUS_ADDRESS={bus}"] + list(cmd)
+     return ["env", f"DBUS_SESSION_BUS_ADDRESS={bus}", "distrobox-host-exec"] + list(cmd)
+ 
+ 
+diff --git a/float/ft-float-apps b/float/ft-float-apps
+index a43a015..5d50f44 100755
+--- a/float/ft-float-apps
++++ b/float/ft-float-apps
+@@ -1,3 +1,3 @@
+ #!/bin/sh
+ # Launch as Standalone: write the apps' desktop file copies (see ft_apps.py).
+-exec python3 "$(dirname "$(readlink -f "$0")")/ft_apps.py" "$@"
++exec "${FRAMETOP_PYTHON:-python3}" "$(dirname "$(readlink -f "$0")")/ft_apps.py" "$@"
+diff --git a/float/ft-floatd b/float/ft-floatd
+index 3b32693..05c03ec 100755
+--- a/float/ft-floatd
++++ b/float/ft-floatd
+@@ -1,3 +1,3 @@
+ #!/bin/bash
+ # ft-floatd on the Frame host, inside the Frametop desktop's session (see ft_floatd.py).
+-exec python3 "$(dirname "$(readlink -f "$0")")/ft_floatd.py" "$@"
++exec "${FRAMETOP_PYTHON:-python3}" "$(dirname "$(readlink -f "$0")")/ft_floatd.py" "$@"
+diff --git a/layout/ft-layout b/layout/ft-layout
+index 4706963..f535539 100755
+--- a/layout/ft-layout
++++ b/layout/ft-layout
+@@ -2,4 +2,4 @@
+ # ft-layout on the Frame host (see ft_layout.py). Works from a terminal or a menu entry
+ # inside the Frametop desktop too: its session has a private XDG_RUNTIME_DIR.
+ export XDG_RUNTIME_DIR=/run/user/$(id -u)
+-exec python3 "$(dirname "$(readlink -f "$0")")/ft_layout.py" "$@"
++exec "${FRAMETOP_PYTHON:-python3}" "$(dirname "$(readlink -f "$0")")/ft_layout.py" "$@"
+diff --git a/session/frametop-session.sh b/session/frametop-session.sh
+index b212cee..1bdda98 100755
+--- a/session/frametop-session.sh
++++ b/session/frametop-session.sh
+@@ -99,12 +99,19 @@ if [ "${1:-}" != --inner ]; then
+   fi
+ 
+   # ft-screens runs in the dev container (it's built against Fedora's wlroots); KWin and
+-  # Plasma stay on the host and connect to its socket.
++  # Plasma stay on the host and connect to its socket. FRAMETOP_SCREENS_BIN names a build
++  # that runs on the host instead (frametop-nix).
+   socket=ft-screens-0
+   read -ra screen_args <<< "$("$here/../layout/ft-layout" screen-args)"
+   export FT_SCREEN_COUNT=$(( ${#screen_args[@]} / 2 )) FT_FLOAT_SLOTS=$float_slots
+-  "$here/../scripts/container-up.sh"  # not owned by this desktop, or stopping it would stop the container
+-  "$HOME/.local/bin/distrobox" enter dev -- "$here/../screens/build/ft-screens" --socket "$socket" \
++  screens_bin=${FRAMETOP_SCREENS_BIN:-}
++  if [ -n "$screens_bin" ]; then
++    screens_cmd=("$screens_bin")
++  else
++    "$here/../scripts/container-up.sh"  # not owned by this desktop, or stopping it would stop the container
++    screens_cmd=("$HOME/.local/bin/distrobox" enter dev -- "$here/../screens/build/ft-screens")
++  fi
++  "${screens_cmd[@]}" --socket "$socket" \
+     "${screen_args[@]}" --spares "$float_slots" > /tmp/frametop-screens.log 2>&1 < /dev/null &
+   stop_screens() { pkill -x ft-screens 2>/dev/null || true; }
+   trap stop_screens EXIT
+@@ -211,7 +218,7 @@ fi
+ # apps' desktop files with that action, first in XDG_DATA_DIRS, so only this desktop sees
+ # them. Written now, before Plasma reads them; ft-floatd keeps them up to date.
+ if [ "$float_slots" -gt 0 ]; then
+-  python3 "$here/../float/ft_apps.py" >/dev/null 2>&1 || true
++  "${FRAMETOP_PYTHON:-python3}" "$here/../float/ft_apps.py" >/dev/null 2>&1 || true
+   export XDG_DATA_DIRS=$HOME/.local/share/frametop/apps:${XDG_DATA_DIRS:-/usr/local/share:/usr/share}
+ fi
+ 
+@@ -226,6 +233,7 @@ if [ "$float_slots" -gt 0 ]; then
+   rm -rf "$deco_dir" "$deco_dir"_try*  # (decoration/apply.sh's copies)
+   mkdir -p "$(dirname "$deco_dir")"
+   cp -r "$here/../decoration" "$deco_dir"
++  chmod -R u+w "$deco_dir"  # (a read-only source, like the Nix store, would block the rm above next time)
+   rm -f "$deco_dir/apply.sh"
+   kwriteconfig6 --file "$kwinrc" --group org.kde.kdecoration2 --key library org.kde.kwin.aurorae
+   kwriteconfig6 --file "$kwinrc" --group org.kde.kdecoration2 --key theme "$deco"
+@@ -238,4 +246,5 @@ fi
+ # with both, apps would open twice.
+ kwriteconfig6 --file "$XDG_CONFIG_HOME/ksmserverrc" --group General --key loginMode emptySession
+ 
+-dbus-run-session startplasma-wayland
++# FRAMETOP_STARTPLASMA: the host's Plasma, when PATH might find another one first.
++dbus-run-session "${FRAMETOP_STARTPLASMA:-startplasma-wayland}"

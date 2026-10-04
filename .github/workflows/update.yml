@@ -1,0 +1,33 @@
+# Weekly: bump the frametop and nixpkgs inputs, open a pull request, and build it. A
+# failing build means a patch stopped applying or upstream's build changed (README.md).
+name: Update inputs
+
+on:
+  schedule:
+    - cron: "0 6 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  update:
+    runs-on: ubuntu-24.04
+    outputs:
+      pr: ${{ steps.update.outputs.pull-request-number }}
+    steps:
+      - uses: actions/checkout@v5
+      - uses: DeterminateSystems/determinate-nix-action@v3
+      - id: update
+        uses: DeterminateSystems/update-flake-lock@main
+        with:
+          branch: update-flake-lock
+          pr-title: "Update frametop and nixpkgs"
+
+  build:
+    needs: update
+    if: needs.update.outputs.pr != ''
+    uses: ./.github/workflows/build.yml
+    with:
+      ref: update-flake-lock
