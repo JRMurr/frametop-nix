@@ -115,8 +115,6 @@ in
         default = "/usr/bin/startplasma-wayland";
         description = ''
           The host's startplasma-wayland, which the session runs nested in ft-screens.
-          Plasma isn't packaged here: don't put kdePackages in home.packages either, since
-          ~/.nix-profile/bin comes first in PATH and the session would find them.
         '';
       };
       vrpathreg = mkOption {
