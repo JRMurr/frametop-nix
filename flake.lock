@@ -3,11 +3,11 @@
     "frametop": {
       "flake": false,
       "locked": {
-        "lastModified": 1790997169,
-        "narHash": "sha256-4W59pN5YeDJgRd2mXtHFKyGRusANZk7ZVb4cHej2S1c=",
+        "lastModified": 1791165012,
+        "narHash": "sha256-XHb97TadTwivg9j8XKbhSrCDpla3WrvHefLDSMSwvZc=",
         "owner": "DeeJanuz",
         "repo": "frametop",
-        "rev": "1ebf3692fbda7f34e413339e6ec86dc829b8a80a",
+        "rev": "ca9492be000a24f8e539607a02ee5d12f41801a6",
         "type": "github"
       },
       "original": {
@@ -18,11 +18,11 @@
     },
     "nixpkgs": {
       "locked": {
-        "lastModified": 1790822859,
-        "narHash": "sha256-69xHQhAeMAD2wDXO7T2pcOZIF9Sga2W+JkmY2a11Ops=",
+        "lastModified": 1791048980,
+        "narHash": "sha256-KgItSKML8Xvte0B7/uGnBDsYzSnnKHcOaiUbgWBXLXw=",
         "owner": "NixOS",
         "repo": "nixpkgs",
-        "rev": "c59305bab2065cfecc4944690d9eedbb56f3a9fa",
+        "rev": "a7868a727837f3c09cee2ce0ca671c76b1589fed",
         "type": "github"
       },
       "original": {
