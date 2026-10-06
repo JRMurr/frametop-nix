@@ -11,7 +11,7 @@
   libgbm,
   openvr,
   vrclientDeps,
-  stbTruetype,
+  stb,
   src,
 }:
 
@@ -36,7 +36,7 @@ stdenv.mkDerivation {
   buildPhase = ''
     runHook preBuild
     mkdir -p build/include
-    cp ${stbTruetype} build/include/stb_truetype.h
+    cp ${stb.truetype} build/include/stb_truetype.h
     cxx="$CXX -std=c++17 -O2 -Wall -Wno-unused-parameter -Wno-missing-field-initializers -Ibuild/include \
       $(pkg-config --cflags openvr)"
     $cxx -I../pointer/common -o build/ft-gaze ft-gaze.cpp \

@@ -20,10 +20,16 @@
   ft-pointer,
   ft-powerd,
   ft-gaze,
+  ft-hands,
+  ft-handpanel,
+  zstd,
   src,
   withSettingsApps ? true,
   # The host's Plasma (Plasma isn't packaged here: the session nests the SteamOS one).
   startPlasma ? "/usr/bin/startplasma-wayland",
+  # ft-camd's copy with its capabilities (store paths can't carry them), which a root service
+  # makes (the Home Manager module's frametop-install.service).
+  camdPath ? "/var/lib/frametop/ft-camd",
 }:
 
 let
@@ -38,6 +44,11 @@ let
     gobject-introspection
   ];
   appPython = python3.withPackages (ps: [ ps.pyside6 ]);
+  # Our own eye tracker's ft-eyes (gaze/tracker/requirements.txt).
+  eyesPython = python3.withPackages (ps: [
+    ps.numpy
+    ps.opencv4
+  ]);
   share = "share/frametop";
 in
 stdenvNoCC.mkDerivation {
@@ -73,8 +84,8 @@ stdenvNoCC.mkDerivation {
     runHook preInstall
     tree=$out/${share}
     mkdir -p $tree
-    cp -r README.md LICENSE desktops.sh decoration display-settings docs float gaze input \
-      input-settings layout remote scripts session steam $tree/
+    cp -r README.md LICENSE desktops.sh decoration display-settings docs float gaze hands input \
+      input-settings layout remote scripts session setup steam $tree/
     mkdir -p $tree/pointer/helper $tree/screens/build $tree/power/build
     cp -r pointer/helper/actions $tree/pointer/helper/
 
@@ -86,6 +97,13 @@ stdenvNoCC.mkDerivation {
     ln -s ${ft-powerd}/bin/ft-powerd $tree/power/build/ft-powerd
     mkdir -p $tree/gaze/build
     ln -s ${ft-gaze}/lib/ft-gaze/bin/ft-gaze ${ft-gaze}/lib/ft-gaze/bin/ft-gazepanel $tree/gaze/build/
+    mkdir -p $tree/gaze/tracker/build/venv/bin
+    ln -s ${eyesPython}/bin/python3 $tree/gaze/tracker/build/venv/bin/python
+    # ft-hands finds its models from argv[0] (hands/build/../models), so a link does.
+    mkdir -p $tree/hands/build $tree/hands/rec/build
+    ln -s ${ft-hands}/bin/ft-hands $tree/hands/build/ft-hands
+    ln -s ${camdPath} $tree/hands/build/ft-camd
+    ln -s ${ft-handpanel}/bin/ft-handpanel $tree/hands/rec/build/ft-handpanel
 
     makeWrapper ${scriptPython}/bin/python3 $out/libexec/frametop/ft-python \
       --prefix GI_TYPELIB_PATH : ${typelibPath}
@@ -100,9 +118,13 @@ stdenvNoCC.mkDerivation {
       substituteInPlace $tree/$f \
         --replace-fail '"''${FRAMETOP_PYTHON:-python3}"' "\"\''${FRAMETOP_PYTHON:-$out/libexec/frametop/ft-python}\""
     done
-    # gaze/build's programs above are built for the host.
-    substituteInPlace $tree/gaze/gazecal.py \
-      --replace-fail '"FRAMETOP_HOST_BUILDS", "0"' '"FRAMETOP_HOST_BUILDS", "1"'
+    # gaze/build's and hands/build's programs above are built for the host.
+    for f in gaze/gazecal.py hands/rec/session.py; do
+      substituteInPlace $tree/$f \
+        --replace-fail '"FRAMETOP_HOST_BUILDS", "0"' '"FRAMETOP_HOST_BUILDS", "1"'
+    done
+    substituteInPlace $tree/hands/ft-cutouts \
+      --replace-fail 'host_builds=''${FRAMETOP_HOST_BUILDS:-0}' 'host_builds=''${FRAMETOP_HOST_BUILDS:-1}'
     # The repo's relay unit uses /usr/bin/python3; the Home Manager unit uses this one.
     ln -s ${scriptPython}/bin/python3 $out/libexec/frametop/python3
 
@@ -111,13 +133,15 @@ stdenvNoCC.mkDerivation {
     sed "s|@SESSION@|$tree/session/frametop-session.sh|" session/deckard-nested-desktop.desktop \
       > $out/${share}-entries/deckard-nested-desktop.desktop
     for f in display-settings/ft-layout-reset display-settings/ft-screens-toggle \
-      ${lib.optionalString withSettingsApps "display-settings/ft-display-settings input-settings/ft-input-settings"}; do
+      ${lib.optionalString withSettingsApps "display-settings/ft-display-settings input-settings/ft-input-settings hands/rec/ft-handrec"}; do
       sed "s|@REPO@|$tree|g" $f.desktop > $out/${share}-entries/$(basename $f).desktop
     done
 
     mkdir -p $out/bin
     ln -s ../${share}/layout/ft-layout $out/bin/ft-layout
     ln -s ../${share}/float/ft-float $out/bin/ft-float
+    ln -s ../${share}/hands/ft-handsctl $out/bin/ft-handsctl
+    ln -s ../${share}/hands/ft-cutouts $out/bin/ft-cutouts
     runHook postInstall
   '';
 
@@ -128,12 +152,13 @@ stdenvNoCC.mkDerivation {
   # (same name, so the menu entries and anything calling them keep working).
   + lib.optionalString withSettingsApps ''
     for app in display-settings/ft-display-settings:ft_display_settings.py \
-      input-settings/ft-input-settings:ft_input_settings.py; do
+      input-settings/ft-input-settings:ft_input_settings.py hands/rec/ft-handrec:ft_handrec.py; do
       launcher=$tree/''${app%%:*} script=$(dirname $tree/''${app%%:*})/''${app##*:}
       rm $launcher
       makeQtWrapper ${appPython}/bin/python3 $launcher \
         --add-flags $script \
-        --set-default QT_QPA_PLATFORM 'wayland;xcb'
+        --set-default QT_QPA_PLATFORM 'wayland;xcb' \
+        --suffix PATH : ${lib.makeBinPath [ zstd ]}
       ln -s ../${share}/''${app%%:*} $out/bin/$(basename $launcher)
     done
   '';
@@ -147,7 +172,12 @@ stdenvNoCC.mkDerivation {
   '';
 
   passthru = {
-    inherit scriptPython appPython withSettingsApps;
+    inherit
+      scriptPython
+      appPython
+      withSettingsApps
+      camdPath
+      ;
     tree = share;
   };
 

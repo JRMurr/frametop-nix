@@ -19,7 +19,7 @@
   openvr,
   vrclientDeps,
   # keyboard.cpp's key labels.
-  stbTruetype,
+  stb,
   src,
 }:
 
@@ -50,7 +50,7 @@ stdenv.mkDerivation {
   buildPhase = ''
     runHook preBuild
     mkdir -p build/include
-    cp ${stbTruetype} build/include/stb_truetype.h
+    cp ${stb.truetype} build/include/stb_truetype.h
     $CC -std=c11 -O2 -Wall -Wno-unused-parameter -c -o build/compositor.o compositor.c \
       $(pkg-config --cflags wlroots-0.20 wayland-server xkbcommon libdrm pixman-1)
     cxx="$CXX -std=c++17 -O2 -Wall -Wno-missing-field-initializers -Ibuild/include \

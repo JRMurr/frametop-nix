@@ -52,10 +52,18 @@ jobs:
         run: |
           nix build -L \
             .#ft-screens .#ft-pointer .#ft-powerd .#ft-pointer-driver \
+            .#ft-gaze .#ft-eyegrab .#ft-hands .#ft-camd .#ft-handpanel \
             .#frametop-scripts .#frametop-apps
 
       - name: Build a Home Manager configuration with programs.frametop
         run: nix build --impure -L -f checks/home.nix -o home
+
+      - name: Without steamos-etc, the root parts fail with an assertion naming it
+        run: |
+          if out=$(nix eval --impure --expr 'import ./checks/needs-steamos-etc.nix { }' 2>&1); then
+            echo "evaluated without steamos-etc" >&2; exit 1
+          fi
+          grep -q 'programs.steamos-etc.enable' <<< "$out" || { echo "$out" >&2; exit 1; }
 
       - name: Inspect the builds
         run: |
@@ -71,7 +79,7 @@ jobs:
           apps=$(nix build --no-link --print-out-paths .#frametop-apps)
           export HOME=$RUNNER_TEMP/home XDG_RUNTIME_DIR=$RUNNER_TEMP/runtime
           mkdir -p "$HOME" "$XDG_RUNTIME_DIR" && chmod 700 "$XDG_RUNTIME_DIR"
-          for app in ft-display-settings ft-input-settings; do
+          for app in ft-display-settings ft-input-settings ft-handrec; do
             # Each exits 1 at once if its QML (Kirigami, the org.kde.desktop style) doesn't
             # load; still running after a few seconds means it did.
             set +e
@@ -88,3 +96,4 @@ jobs:
           apps=$(nix build --no-link --print-out-paths .#frametop-apps)
           "$apps/bin/ft-layout" --help > /dev/null
           "$apps/libexec/frametop/ft-python" -c 'import dbus, dbus.mainloop.glib; from gi.repository import Gio, GLib'
+          "$apps/share/frametop/gaze/tracker/build/venv/bin/python" -c 'import numpy, cv2'

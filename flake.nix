@@ -30,8 +30,8 @@
         let
           src = pkgs.callPackage ./packages/source.nix { inherit frametop; };
           vrclientDeps = import ./packages/vrclient-deps.nix { inherit (pkgs) libGL libuuid; };
-          stbTruetype = pkgs.callPackage ./packages/stb-truetype.nix { };
-          callPackage = lib.callPackageWith (pkgs // packages // { inherit src vrclientDeps stbTruetype; });
+          stb = pkgs.callPackage ./packages/stb.nix { };
+          callPackage = lib.callPackageWith (pkgs // packages // { inherit src vrclientDeps stb; });
           packages = {
             frametop-src = src;
             ft-screens = callPackage ./packages/ft-screens.nix { };
@@ -39,6 +39,10 @@
             ft-powerd = callPackage ./packages/ft-powerd.nix { };
             ft-pointer-driver = callPackage ./packages/ft-pointer-driver.nix { };
             ft-gaze = callPackage ./packages/ft-gaze.nix { };
+            ft-eyegrab = callPackage ./packages/ft-eyegrab.nix { };
+            ft-hands = callPackage ./packages/ft-hands.nix { };
+            ft-camd = callPackage ./packages/ft-camd.nix { };
+            ft-handpanel = callPackage ./packages/ft-handpanel.nix { };
             # Everything: scripts, Python tools, settings apps, and the programs above.
             frametop-apps = callPackage ./packages/frametop.nix { };
             # The same without the settings apps (no Qt).
@@ -85,10 +89,11 @@
                 python3 -m pytest -q -p no:cacheprovider test_config_links.py
                 touch $out
               '';
-          # The packaged tree's gaze: gaze/build's programs run on the host, and the gaze
-          # service idles (upstream's offline test, with a fake ft-gaze).
-          gaze =
-            pkgs.runCommand "frametop-gaze-test"
+          # The packaged tree runs gaze's and hand tracking's programs on the host
+          # (FRAMETOP_HOST_BUILDS), and the gaze service idles (upstream's offline test, with
+          # a fake ft-gaze).
+          host-builds =
+            pkgs.runCommand "frametop-host-builds-test"
               {
                 nativeBuildInputs = [
                   (pkgs.python3.withPackages (ps: [
@@ -98,10 +103,19 @@
                 ];
               }
               ''
-                cp -r ${packages.frametop-scripts}/share/frametop/gaze gaze && chmod -R u+w gaze && cd gaze
-                python3 -c 'import gazecal; assert gazecal.BUILDS == gazecal.Builds.HOST, gazecal.BUILDS'
-                python3 -m pytest -q -p no:cacheprovider test_gazecal_builds.py
-                HOME=$TMPDIR python3 test/idle-test.py
+                cp -r ${packages.frametop-scripts}/share/frametop/{gaze,hands} . && chmod -R u+w gaze hands
+                export HOME=$TMPDIR
+
+                (cd gaze
+                  python3 -c 'import gazecal; assert gazecal.BUILDS == gazecal.Builds.HOST, gazecal.BUILDS'
+                  python3 -m pytest -q -p no:cacheprovider test_gazecal_builds.py
+                  python3 test/idle-test.py)
+
+                grep -qF 'host_builds=''${FRAMETOP_HOST_BUILDS:-1}' hands/ft-cutouts
+                python3 hands/tests/test_cutouts.py
+                (cd hands/rec
+                  python3 -c 'import session; assert session.BUILDS == session.Builds.HOST, session.BUILDS'
+                  python3 tests/test_tracker_argv.py)
                 touch $out
               '';
         }
