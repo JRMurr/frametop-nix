@@ -1,0 +1,84 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: John Murray <5672686+JRMurr@users.noreply.github.com>
+Date: Mon, 5 Oct 2026 23:24:05 -0400
+Subject: [PATCH] conf-migrate: stop at an error, so a failed rewrite can't
+ empty frametop.conf
+
+The rewrite runs in its own bash (on_frame_script), without the script's set -e. With no
+awk on PATH (Home Manager's activation has none), awk failed, the empty temp file
+replaced ~/.config/frametop.conf, and the script still reported the migration.
+---
+ scripts/conf-migrate.sh      |  1 +
+ scripts/test_conf_migrate.py | 51 ++++++++++++++++++++++++++++++++++++
+ 2 files changed, 52 insertions(+)
+ create mode 100644 scripts/test_conf_migrate.py
+
+diff --git a/scripts/conf-migrate.sh b/scripts/conf-migrate.sh
+index b1d4acc..ecb1c64 100755
+--- a/scripts/conf-migrate.sh
++++ b/scripts/conf-migrate.sh
+@@ -11,6 +11,7 @@ root=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
+ . "$root/scripts/_env.sh"
+ 
+ on_frame_script <<'EOF'
++set -euo pipefail  # (a separate bash): a failed rewrite must not leave the file empty
+ f=~/.config/frametop.conf
+ [ -f "$f" ] || exit 0
+ old="HANDS_SWAP_SIDES=0         # hand tracking (hands/run.sh install): 1 = the side cameras' names are swapped, which some SteamVR restarts cause (hands/tools/check_sides.py --ring tells)"
+diff --git a/scripts/test_conf_migrate.py b/scripts/test_conf_migrate.py
+new file mode 100644
+index 0000000..cb74781
+--- /dev/null
++++ b/scripts/test_conf_migrate.py
+@@ -0,0 +1,51 @@
++#!/usr/bin/env python3
++"""Tests for scripts/conf-migrate.sh, on a frametop.conf in a temp HOME.
++
++  python3 scripts/test_conf_migrate.py
++"""
++import os
++import shutil
++import subprocess
++import tempfile
++import unittest
++
++HERE = os.path.dirname(os.path.abspath(__file__))
++MIGRATE = os.path.join(HERE, "conf-migrate.sh")
++OLD = ("HANDS_SWAP_SIDES=0         # hand tracking (hands/run.sh install): 1 = the side cameras' names are "
++       "swapped, which some SteamVR restarts cause (hands/tools/check_sides.py --ring tells)")
++CONF = f"POINTER=1\n{OLD}\nSHARE_CONFIG=1\n"
++# What the script and scripts/_env.sh run, besides awk.
++TOOLS = ("bash", "cat", "dirname", "grep", "id", "mktemp", "rm")
++
++
++class ConfMigrateTest(unittest.TestCase):
++    def migrate(self, with_awk):
++        """frametop.conf after a run, and the run's exit code."""
++        with tempfile.TemporaryDirectory() as home:
++            bindir = os.path.join(home, "bin")
++            os.makedirs(os.path.join(home, ".config"))
++            os.makedirs(bindir)
++            for tool in TOOLS + (("awk",) if with_awk else ()):
++                os.symlink(shutil.which(tool), os.path.join(bindir, tool))
++            conf = os.path.join(home, ".config", "frametop.conf")
++            with open(conf, "w") as f:
++                f.write(CONF)
++            run = subprocess.run([shutil.which("bash"), MIGRATE], env={"HOME": home, "PATH": bindir,
++                                 "FRAME_LOCAL": "1"}, capture_output=True, text=True)
++            with open(conf) as f:
++                return f.read(), run.returncode
++
++    def test_migrates_the_old_line(self):
++        conf, code = self.migrate(with_awk=True)
++        self.assertEqual(code, 0)
++        self.assertIn("HANDS_SWAP_SIDES=auto", conf)
++        self.assertIn("POINTER=1", conf)
++
++    def test_a_failed_rewrite_keeps_the_file(self):
++        conf, code = self.migrate(with_awk=False)
++        self.assertNotEqual(code, 0)
++        self.assertEqual(conf, CONF)
++
++
++if __name__ == "__main__":
++    unittest.main()

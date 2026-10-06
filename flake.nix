@@ -74,8 +74,9 @@
         in
         {
           inherit (packages) ft-pointer-driver ft-gaze frametop-scripts;
-          config-links =
-            pkgs.runCommand "frametop-config-links-test"
+          # ~/.config: SHARE_CONFIG's links, and conf-migrate.sh never emptying frametop.conf.
+          config =
+            pkgs.runCommand "frametop-config-test"
               {
                 nativeBuildInputs = [
                   (pkgs.python3.withPackages (ps: [
@@ -85,8 +86,9 @@
                 ];
               }
               ''
-                cp -r ${packages.frametop-src}/session session && chmod -R u+w session && cd session
-                python3 -m pytest -q -p no:cacheprovider test_config_links.py
+                cp -r ${packages.frametop-src}/{session,scripts} . && chmod -R u+w session scripts
+                (cd session && python3 -m pytest -q -p no:cacheprovider test_config_links.py)
+                python3 scripts/test_conf_migrate.py
                 touch $out
               '';
           # The packaged tree runs gaze's and hand tracking's programs on the host

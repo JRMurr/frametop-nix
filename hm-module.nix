@@ -450,7 +450,9 @@ in
             set_conf SHARE_CONFIG ${if cfg.shareConfig then "1" else "0"}
 
             # Lines still at an older example's default get the new one (install.sh runs it too).
-            run ${tree}/scripts/conf-migrate.sh || warnEcho "frametop: conf-migrate.sh failed"
+            # It uses awk, which activation's PATH doesn't have.
+            run env PATH=${lib.makeBinPath [ pkgs.gawk ]}:"$PATH" ${tree}/scripts/conf-migrate.sh \
+              || warnEcho "frametop: conf-migrate.sh failed"
           '';
 
           # The ft_pointer driver's registration with SteamVR, once: the path doesn't change
