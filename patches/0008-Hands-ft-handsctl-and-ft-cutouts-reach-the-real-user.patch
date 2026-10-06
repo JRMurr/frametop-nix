@@ -1,0 +1,141 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: John Murray <5672686+JRMurr@users.noreply.github.com>
+Date: Mon, 5 Oct 2026 23:48:43 -0400
+Subject: [PATCH] Hands: ft-handsctl and ft-cutouts reach the real user session
+
+From a terminal in a nested desktop, systemctl --user found the desktop's private runtime
+folder, so they said SteamVR isn't running. They now use /run/user/UID, as scripts/_env.sh does.
+---
+ hands/ft-cutouts            |  4 ++++
+ hands/ft-handsctl           |  4 ++++
+ hands/tests/test_cutouts.py | 48 ++++++++++++++++++++++++-------------
+ 3 files changed, 40 insertions(+), 16 deletions(-)
+
+diff --git a/hands/ft-cutouts b/hands/ft-cutouts
+index 4a84b13..2035a69 100755
+--- a/hands/ft-cutouts
++++ b/hands/ft-cutouts
+@@ -9,6 +9,10 @@
+ # Runs this checkout's hands/build as transient user units, so it doesn't need hands/run.sh
+ # install: only a build (hands/build.sh) and ft-camd's capabilities (hands/run.sh caps).
+ set -euo pipefail
++# From a terminal in a nested desktop (Frametop's or the stock one), which has its own runtime
++# folder and D-Bus: systemctl --user needs the real ones (as scripts/_env.sh does).
++export XDG_RUNTIME_DIR=/run/user/$(id -u)
++export DBUS_SESSION_BUS_ADDRESS=unix:path=$XDG_RUNTIME_DIR/bus
+ here=$(cd "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")" && pwd)
+ camd=frametop-cutouts-camd.service hands=frametop-cutouts-hands.service
+ # FRAMETOP_HOST_BUILDS=1: build/ft-hands is built for the host (frametop-nix), not the dev container.
+diff --git a/hands/ft-handsctl b/hands/ft-handsctl
+index 8de5f66..c91a1c5 100755
+--- a/hands/ft-handsctl
++++ b/hands/ft-handsctl
+@@ -10,6 +10,10 @@
+ #
+ # Needs the services installed once: hands/run.sh install (it sets ft-camd's capabilities).
+ set -euo pipefail
++# From a terminal in a nested desktop (Frametop's or the stock one), which has its own runtime
++# folder and D-Bus: systemctl --user needs the real ones (as scripts/_env.sh does).
++export XDG_RUNTIME_DIR=/run/user/$(id -u)
++export DBUS_SESSION_BUS_ADDRESS=unix:path=$XDG_RUNTIME_DIR/bus
+ here=$(cd "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")" && pwd)
+ units="frametop-camd.service frametop-hands.service"
+ 
+diff --git a/hands/tests/test_cutouts.py b/hands/tests/test_cutouts.py
+index ba8749b..fdc62f2 100644
+--- a/hands/tests/test_cutouts.py
++++ b/hands/tests/test_cutouts.py
+@@ -1,6 +1,7 @@
+ #!/usr/bin/env python3
+-"""Tests for hands/ft-cutouts: where it runs ft-hands. Runs a copy of it with fake systemctl,
+-systemd-run, getcap, and journalctl on PATH, so nothing reaches systemd or SteamVR.
++"""Tests for hands/ft-cutouts and ft-handsctl: where ft-cutouts runs ft-hands, and that both
++reach the real user session from a terminal in a nested desktop. Runs copies with fake
++systemctl, systemd-run, getcap, and journalctl on PATH, so nothing reaches systemd or SteamVR.
+ 
+   python3 hands/tests/test_cutouts.py
+ """
+@@ -12,11 +13,15 @@ import unittest
+ 
+ HERE = os.path.dirname(os.path.abspath(__file__))
+ CUTOUTS = os.path.join(os.path.dirname(HERE), "ft-cutouts")
++HANDSCTL = os.path.join(os.path.dirname(HERE), "ft-handsctl")
++NESTED = "/run/user/%d/frametop-nested" % os.getuid()  # a nested desktop's private runtime dir
++REAL = "/run/user/%d" % os.getuid()
+ BASH = shutil.which("bash")  # not /usr/bin/env, which a build sandbox doesn't have
+ 
+ FAKES = {
+     # SteamVR runs; no unit of ours does yet.
+-    "systemctl": '[ "$2" = show ] && exit 0; for a; do [ "$a" = steamvr.service ] && exit 0; done; exit 1',
++    "systemctl": 'echo "$XDG_RUNTIME_DIR $DBUS_SESSION_BUS_ADDRESS" >> "$SESSIONS"; '
++                 'case $2 in show|start|stop) exit 0;; esac; for a; do [ "$a" = steamvr.service ] && exit 0; done; exit 1',
+     "getcap": 'echo "$1 cap_sys_ptrace,cap_perfmon,cap_dac_read_search=ep"',
+     "systemd-run": 'printf "%s\\n" "$*" >> "$RUNS"',
+     "journalctl": "true",
+@@ -26,8 +31,8 @@ FAKES = {
+ 
+ 
+ class CutoutsTest(unittest.TestCase):
+-    def runs(self, host_builds):
+-        """The systemd-run command lines of `ft-cutouts on`."""
++    def runs(self, host_builds, script=CUTOUTS):
++        """The systemd-run command lines of `<script> on`, and the sessions systemctl got."""
+         with tempfile.TemporaryDirectory() as tmp:
+             bindir, hands = os.path.join(tmp, "bin"), os.path.join(tmp, "repo", "hands")
+             for d in (bindir, os.path.join(hands, "build"), os.path.join(tmp, "repo", "scripts")):
+@@ -36,18 +41,22 @@ class CutoutsTest(unittest.TestCase):
+                 self.script(os.path.join(bindir, name), body)
+             self.script(os.path.join(hands, "build", "ft-camd"), "true")
+             self.script(os.path.join(hands, "build", "ft-hands"), "true  # --no-gestures")
+-            self.script(os.path.join(hands, "ft-handsctl"), "true")
+             self.script(os.path.join(tmp, "repo", "scripts", "container-up.sh"), "true")
+-            with open(CUTOUTS) as src, open(os.path.join(hands, "ft-cutouts"), "w") as dst:
+-                dst.write(f"#!{BASH}\n" + src.read().split("\n", 1)[1])
+-            os.chmod(os.path.join(hands, "ft-cutouts"), 0o755)
++            for src_path in (CUTOUTS, HANDSCTL):
++                dst_path = os.path.join(hands, os.path.basename(src_path))
++                with open(src_path) as src, open(dst_path, "w") as dst:
++                    dst.write(f"#!{BASH}\n" + src.read().split("\n", 1)[1])
++                os.chmod(dst_path, 0o755)
+ 
+-            env = dict(os.environ, PATH=f"{bindir}:{os.environ['PATH']}", RUNS=os.path.join(tmp, "runs"),
+-                       HOME=tmp, FRAMETOP_HOST_BUILDS=host_builds)
+-            subprocess.run([os.path.join(hands, "ft-cutouts"), "on"], env=env, check=True,
++            runs, sessions = os.path.join(tmp, "runs"), os.path.join(tmp, "sessions")
++            open(runs, "w").close()
++            env = dict(os.environ, PATH=f"{bindir}:{os.environ['PATH']}", RUNS=runs, SESSIONS=sessions,
++                       HOME=tmp, FRAMETOP_HOST_BUILDS=host_builds, XDG_RUNTIME_DIR=NESTED,
++                       DBUS_SESSION_BUS_ADDRESS=f"unix:path={NESTED}/bus")
++            subprocess.run([os.path.join(hands, os.path.basename(script)), "on"], env=env, check=True,
+                            stdout=subprocess.DEVNULL)
+-            with open(env["RUNS"]) as f:
+-                return f.read().splitlines()
++            with open(runs) as f, open(sessions) as g:
++                return f.read().splitlines(), g.read().splitlines()
+ 
+     @staticmethod
+     def script(path, body):
+@@ -59,14 +68,21 @@ class CutoutsTest(unittest.TestCase):
+         return next(r for r in runs if "frametop-cutouts-hands" in r)
+ 
+     def test_host_runs_ft_hands(self):
+-        run = self.hands_run(self.runs("1"))
++        run = self.hands_run(self.runs("1")[0])
+         self.assertNotIn("distrobox", run)
+         self.assertIn("/build/ft-hands --status 60 --no-gestures", run)
+ 
+     def test_container_runs_ft_hands_there(self):
+-        run = self.hands_run(self.runs("0"))
++        run = self.hands_run(self.runs("0")[0])
+         self.assertIn("distrobox enter dev --", run)
+ 
++    def test_reach_the_real_session(self):
++        for script in (CUTOUTS, HANDSCTL):
++            _, sessions = self.runs("1", script)
++            self.assertTrue(sessions, script)
++            for s in sessions:
++                self.assertEqual(s, f"{REAL} unix:path={REAL}/bus", script)
++
+ 
+ if __name__ == "__main__":
+     unittest.main()
