@@ -1,0 +1,136 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: John Murray <5672686+JRMurr@users.noreply.github.com>
+Date: Mon, 5 Oct 2026 23:57:03 -0400
+Subject: [PATCH] Hands: check ft-camd's capabilities on the file, not a link
+ to it
+
+getcap shows nothing for a symbolic link, so with hands/build/ft-camd a link to the copy that
+has them (frametop-nix's tree), ft-cutouts and the hand recorder said they were missing.
+---
+ hands/ft-cutouts                  |  3 ++-
+ hands/rec/session.py              | 12 +++++++--
+ hands/rec/tests/test_camd_caps.py | 45 +++++++++++++++++++++++++++++++
+ hands/tests/test_cutouts.py       |  7 +++--
+ 4 files changed, 62 insertions(+), 5 deletions(-)
+ create mode 100644 hands/rec/tests/test_camd_caps.py
+
+diff --git a/hands/ft-cutouts b/hands/ft-cutouts
+index 2035a69..e115f72 100755
+--- a/hands/ft-cutouts
++++ b/hands/ft-cutouts
+@@ -34,7 +34,8 @@ case ${1:-status} in
+     systemctl --user -q is-active steamvr.service || die "SteamVR isn't running"
+     [ -x "$here/build/ft-camd" ] && [ -x "$here/build/ft-hands" ] || die "not built: hands/build.sh"
+     grep -qa -- --no-gestures "$here/build/ft-hands" || die "ft-hands predates --no-gestures: hands/build.sh"
+-    getcap "$here/build/ft-camd" | grep -q cap_sys_ptrace ||
++    # The file itself: getcap shows nothing for a link to it.
++    getcap "$(readlink -f "$here/build/ft-camd")" | grep -q cap_sys_ptrace ||
+       die "ft-camd needs its capabilities: hands/run.sh caps (asks for sudo)"
+     if systemctl --user -q is-active frametop-camd.service frametop-hands.service; then
+       echo "stopping ft-handsctl's hand tracking (it has pinches and grips)"
+diff --git a/hands/rec/session.py b/hands/rec/session.py
+index da7eb1d..7806c23 100755
+--- a/hands/rec/session.py
++++ b/hands/rec/session.py
+@@ -377,6 +377,15 @@ def stop_unit(unit):
+     subprocess.run(host_command("systemctl", "--user", "stop", unit), capture_output=True, timeout=30)
+ 
+ 
++def camd_has_caps(path):
++    """ft-camd has its capabilities (or getcap isn't there to tell). The file itself: getcap
++    shows nothing for a link to it."""
++    if not shutil.which("getcap"):
++        return True
++    caps = subprocess.run(["getcap", os.path.realpath(path)], capture_output=True, text=True)
++    return "cap_sys_ptrace" in caps.stdout
++
++
+ def ring_alive(path=None):
+     try:
+         r = Ring(path or os.path.join(run_dir(), "cam-ring"))
+@@ -396,8 +405,7 @@ def start_camd(path=None, log=lambda line: None, stop=lambda: False, timeout=15.
+         return False
+     if not os.access(FT_CAMD, os.X_OK):
+         raise RuntimeError("ft-camd isn't built: hands/build.sh")
+-    caps = subprocess.run(["getcap", FT_CAMD], capture_output=True, text=True) if shutil.which("getcap") else None
+-    if caps is not None and "cap_sys_ptrace" not in caps.stdout:
++    if not camd_has_caps(FT_CAMD):
+         raise RuntimeError("ft-camd needs its capabilities: hands/run.sh caps (asks for sudo)")
+     started = start_unit(CAMD_UNIT, "the camera broker", [FT_CAMD, "--status", "60"], log)
+     end = time.monotonic() + timeout
+diff --git a/hands/rec/tests/test_camd_caps.py b/hands/rec/tests/test_camd_caps.py
+new file mode 100644
+index 0000000..8571cac
+--- /dev/null
++++ b/hands/rec/tests/test_camd_caps.py
+@@ -0,0 +1,45 @@
++#!/usr/bin/env python3
++"""Tests for session.camd_has_caps: ft-camd's capabilities, through a link to it too. Uses a fake
++getcap that, like the real one, shows nothing for a symbolic link.
++
++  python3 hands/rec/tests/test_camd_caps.py
++"""
++import os
++import shutil
++import sys
++import tempfile
++import unittest
++
++HERE = os.path.dirname(os.path.abspath(__file__))
++sys.path.insert(0, os.path.dirname(HERE))
++import session  # noqa: E402
++
++GETCAP = '[ -L "$1" ] || echo "$1 cap_sys_ptrace,cap_perfmon,cap_dac_read_search=ep"'
++
++
++class CamdCapsTest(unittest.TestCase):
++    def setUp(self):
++        self.tmp = tempfile.mkdtemp()
++        self.addCleanup(shutil.rmtree, self.tmp)
++        bindir = os.path.join(self.tmp, "bin")
++        os.makedirs(bindir)
++        with open(os.path.join(bindir, "getcap"), "w") as f:
++            f.write(f"#!{shutil.which('bash')}\n{GETCAP}\n")
++        os.chmod(os.path.join(bindir, "getcap"), 0o755)
++        self.path = os.environ["PATH"]
++        os.environ["PATH"] = f"{bindir}:{self.path}"
++        self.addCleanup(os.environ.__setitem__, "PATH", self.path)
++        self.camd = os.path.join(self.tmp, "ft-camd")
++        open(self.camd, "w").close()
++
++    def test_the_file(self):
++        self.assertTrue(session.camd_has_caps(self.camd))
++
++    def test_a_link_to_it(self):
++        link = os.path.join(self.tmp, "build-ft-camd")
++        os.symlink(self.camd, link)
++        self.assertTrue(session.camd_has_caps(link))
++
++
++if __name__ == "__main__":
++    unittest.main()
+diff --git a/hands/tests/test_cutouts.py b/hands/tests/test_cutouts.py
+index fdc62f2..02a4a54 100644
+--- a/hands/tests/test_cutouts.py
++++ b/hands/tests/test_cutouts.py
+@@ -22,7 +22,8 @@ FAKES = {
+     # SteamVR runs; no unit of ours does yet.
+     "systemctl": 'echo "$XDG_RUNTIME_DIR $DBUS_SESSION_BUS_ADDRESS" >> "$SESSIONS"; '
+                  'case $2 in show|start|stop) exit 0;; esac; for a; do [ "$a" = steamvr.service ] && exit 0; done; exit 1',
+-    "getcap": 'echo "$1 cap_sys_ptrace,cap_perfmon,cap_dac_read_search=ep"',
++    # As the real one: nothing for a symbolic link, only for the file itself.
++    "getcap": '[ -L "$1" ] || echo "$1 cap_sys_ptrace,cap_perfmon,cap_dac_read_search=ep"',
+     "systemd-run": 'printf "%s\\n" "$*" >> "$RUNS"',
+     "journalctl": "true",
+     "pkill": "true",
+@@ -39,7 +40,9 @@ class CutoutsTest(unittest.TestCase):
+                 os.makedirs(d)
+             for name, body in FAKES.items():
+                 self.script(os.path.join(bindir, name), body)
+-            self.script(os.path.join(hands, "build", "ft-camd"), "true")
++            # A link to the copy with the capabilities, as frametop-nix's tree has it.
++            self.script(os.path.join(tmp, "ft-camd"), "true")
++            os.symlink(os.path.join(tmp, "ft-camd"), os.path.join(hands, "build", "ft-camd"))
+             self.script(os.path.join(hands, "build", "ft-hands"), "true  # --no-gestures")
+             self.script(os.path.join(tmp, "repo", "scripts", "container-up.sh"), "true")
+             for src_path in (CUTOUTS, HANDSCTL):

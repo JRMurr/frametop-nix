@@ -118,7 +118,8 @@
                 python3 hands/tests/test_cutouts.py
                 (cd hands/rec
                   python3 -c 'import session; assert session.BUILDS == session.Builds.HOST, session.BUILDS'
-                  python3 tests/test_tracker_argv.py)
+                  python3 tests/test_tracker_argv.py
+                  python3 tests/test_camd_caps.py)
                 touch $out
               '';
         }

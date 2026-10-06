@@ -185,6 +185,7 @@ CI (`.github/workflows/build.yml`) runs on PRs and pushes to main, natively on G
 | 0006 hands host builds | The same for `ft-hands`, in `ft-cutouts` and the hand recorder |
 | 0007 conf-migrate | `scripts/conf-migrate.sh` stops at an error instead of emptying `frametop.conf` |
 | 0008 hands session | `ft-handsctl` and `ft-cutouts` reach the real user session from a terminal in the Frametop desktop |
+| 0009 hands caps | `ft-cutouts` and the hand recorder check `ft-camd`'s capabilities on the file, not the tree's link to it |
 
 To change them, in a frametop checkout (`git am ../frametop-nix/patches/*` on upstream main recreates the branch):
 
