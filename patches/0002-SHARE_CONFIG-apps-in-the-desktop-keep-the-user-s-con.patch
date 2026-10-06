@@ -6,20 +6,20 @@ Subject: [PATCH] SHARE_CONFIG: apps in the desktop keep the user's config
 session/config_links.py links ~/.config and ~/.local/state into the desktop's
 own folders, except Plasma's and KWin's files.
 ---
- session/config_links.py       | 116 ++++++++++++++++++++++++++++++++++
+ session/config_links.py       | 119 ++++++++++++++++++++++++++++++++++
  session/frametop-session.sh   |  10 ++-
  session/frametop.conf.example |   1 +
- session/test_config_links.py  |  89 ++++++++++++++++++++++++++
- 4 files changed, 215 insertions(+), 1 deletion(-)
+ session/test_config_links.py  |  98 ++++++++++++++++++++++++++++
+ 4 files changed, 227 insertions(+), 1 deletion(-)
  create mode 100755 session/config_links.py
  create mode 100644 session/test_config_links.py
 
 diff --git a/session/config_links.py b/session/config_links.py
 new file mode 100755
-index 0000000..b6e86eb
+index 0000000..0ce479b
 --- /dev/null
 +++ b/session/config_links.py
-@@ -0,0 +1,116 @@
+@@ -0,0 +1,119 @@
 +#!/usr/bin/env python3
 +"""Give the Frametop desktop the user's config and state, apart from Plasma's own files.
 +The session runs it when SHARE_CONFIG=1 is set in ~/.config/frametop.conf.
@@ -30,7 +30,8 @@ index 0000000..b6e86eb
 +otherwise see an empty config (no shell or editor settings, logged out of every app). So at each start,
 +everything in the real folder that isn't Plasma's (KEEP_CONFIG, KEEP_STATE) is linked in
 +(name -> ../name). A file or folder in the way, made here before, is moved to .replaced/.
-+Links whose real entry is gone are removed. Entries the user linked elsewhere are left.
++Links whose real entry is gone, or whose name became the desktop's own, are removed.
++Entries the user linked elsewhere are left.
 +
 +Usage: config_links.py <real dir> <desktop's dir> config|state
 +"""
@@ -40,10 +41,11 @@ index 0000000..b6e86eb
 +
 +# The desktop's own: what both desktops' Plasma and KWin write for their own screens,
 +# panels, input, and session, and what Frametop writes for this one (the decoration in
-+# kwinrc, loginMode in ksmserverrc, its shortcuts, ft-floatd's autostart). kdeglobals
-+# (theme, fonts) is shared on purpose.
++# kwinrc, loginMode in ksmserverrc, its shortcuts, ft-floatd's autostart, effects and
++# animations in kdeglobals).
 +KEEP_CONFIG = {
 +    "autostart", "kactivitymanagerdrc", "kactivitymanagerd-statsrc", "kcminputrc", "kconf_updaterc",
++    "kdeglobals",
 +    "kded5rc", "kded6rc", "kdedefaults", "kglobalshortcutsrc", "khotkeysrc", "ksmserverrc",
 +    "kwinoutputconfig.json", "kwinrc", "kwinrulesrc", "plasma-org.kde.plasma.desktop-appletsrc",
 +    "plasmashellrc", "powerdevilrc", "powermanagementprofilesrc",
@@ -77,8 +79,9 @@ index 0000000..b6e86eb
 +            actions.append((LINK, name))
 +        elif kind == REAL:
 +            actions.append((REPLACE, name))
-+    for name in sorted(set(local) - set(real) - skip):
-+        if local[name] == OURS:
++    # Our links whose real entry is gone, or whose name became the desktop's own.
++    for name in sorted(set(local) - {own, REPLACED}):
++        if local[name] == OURS and (name not in real or name in keep):
 +            actions.append((UNLINK, name))
 +    return actions
 +
@@ -137,7 +140,7 @@ index 0000000..b6e86eb
 +if __name__ == "__main__":
 +    main()
 diff --git a/session/frametop-session.sh b/session/frametop-session.sh
-index 1bdda98..9bbc961 100755
+index 9b42d6d..1700010 100755
 --- a/session/frametop-session.sh
 +++ b/session/frametop-session.sh
 @@ -34,7 +34,7 @@ for var in $(compgen -e); do
@@ -172,7 +175,7 @@ index 1bdda98..9bbc961 100755
  # krdp on 127.0.0.1, and session/vnc-bridge.sh re-serves its primary screen over VNC. krdpserver runs from the container, so KWin can't
  # match it to an installed app. KWin's permission check for screencast and fake
 diff --git a/session/frametop.conf.example b/session/frametop.conf.example
-index 0d1b17b..71652ad 100644
+index 1886482..711e1b6 100644
 --- a/session/frametop.conf.example
 +++ b/session/frametop.conf.example
 @@ -9,6 +9,7 @@ PHYS_WIDTH=1.6     # gamescope: panel width in metres, docked
@@ -185,10 +188,10 @@ index 0d1b17b..71652ad 100644
  POINTER_IDLE=30    # seconds without mouse use before the controllers get their laser back
 diff --git a/session/test_config_links.py b/session/test_config_links.py
 new file mode 100644
-index 0000000..3a148c9
+index 0000000..c11e4a5
 --- /dev/null
 +++ b/session/test_config_links.py
-@@ -0,0 +1,89 @@
+@@ -0,0 +1,98 @@
 +"""Tests for config_links.py. Run: python3 -m pytest session/ (needs pytest and hypothesis)."""
 +import os
 +
@@ -218,9 +221,10 @@ index 0000000..3a148c9
 +
 +
 +@given(st.sets(NAMES), st.dictionaries(NAMES, KINDS), st.sets(NAMES))
-+def test_skipped_names_untouched(real, local, keep):
-+    for _, name in cl.plan(real, local, keep, OWN):
-+        assert name not in keep and name not in (OWN, cl.REPLACED)
++def test_skipped_names_only_unlinked(real, local, keep):
++    for action, name in cl.plan(real, local, keep, OWN):
++        assert name not in (OWN, cl.REPLACED)
++        assert name not in keep or (action == cl.UNLINK and local[name] == cl.OURS)
 +
 +
 +@given(st.sets(NAMES), st.dictionaries(NAMES, KINDS), st.sets(NAMES))
@@ -234,7 +238,7 @@ index 0000000..3a148c9
 +def test_only_our_links_removed(real, local, keep):
 +    after = apply_plan(real, local, cl.plan(real, local, keep, OWN))
 +    for name, kind in local.items():
-+        if kind != cl.OURS or name in keep:
++        if kind != cl.OURS:
 +            assert name in after
 +        if kind == cl.OTHER:
 +            assert after[name] == cl.OTHER
@@ -278,3 +282,11 @@ index 0000000..3a148c9
 +    assert (local / cl.REPLACED / "fish.1" / "config.fish").read_text() == "stub"
 +    assert moved == [("fish", str(local / cl.REPLACED / "fish.1"))]
 +    assert cl.sync(str(real), str(local), {"kwinrc"}) == []
++
++
++@given(st.sets(NAMES), st.dictionaries(NAMES, KINDS), st.sets(NAMES))
++def test_kept_names_not_linked(real, local, keep):
++    # A name added to KEEP_CONFIG later, like kdeglobals, loses the link an earlier start made.
++    after = apply_plan(real, local, cl.plan(real, local, keep, OWN))
++    for name in keep - {OWN, cl.REPLACED}:
++        assert after.get(name) != cl.OURS

@@ -151,9 +151,8 @@ CI (`.github/workflows/build.yml`) runs on PRs and pushes to main, natively on G
 | Patch | Why |
 | --- | --- |
 | 0001 env hooks | `FRAMETOP_SCREENS_BIN`, `FRAMETOP_PYTHON`, `FRAMETOP_STARTPLASMA`, so the package can point the scripts at store paths and run ft-screens on the host. Also a writable decoration copy, and `host_command` outside distrobox |
-| 0002 menu programs | Reset Screen Layout and Hide/Show Screens get their own programs, since Steam merges entries that share one |
-| 0003 SHARE_CONFIG | `session/config_links.py`: apps in the desktop keep your normal config (`programs.frametop.shareConfig`) |
-| 0004 update-check | Checks that Nix-built programs link everything SteamVR's `vrclient.so` needs |
+| 0002 SHARE_CONFIG | `session/config_links.py`: apps in the desktop keep your normal config (`programs.frametop.shareConfig`) |
+| 0003 update-check | Checks that Nix-built programs link everything SteamVR's `vrclient.so` needs |
 
 To change them, in a frametop checkout (`git am ../frametop-nix/patches/*` on upstream main recreates the branch):
 
@@ -164,4 +163,4 @@ rm ../frametop-nix/patches/*
 git format-patch --no-signature --zero-commit -N FETCH_HEAD -o ../frametop-nix/patches
 ```
 
-Then run `nix flake update frametop` here so the lock matches the base the patches were made on.
+Then `git add patches` (flakes only see tracked files) and run `nix flake update frametop` here so the lock matches the base the patches were made on.

@@ -9,10 +9,10 @@ Subject: [PATCH] update-check: check vrclient.so's libraries for Nix-built
  1 file changed, 57 insertions(+), 1 deletion(-)
 
 diff --git a/scripts/update-check.py b/scripts/update-check.py
-index a00e9c7..9b32aa3 100755
+index 7af6175..fb9f438 100755
 --- a/scripts/update-check.py
 +++ b/scripts/update-check.py
-@@ -214,6 +214,8 @@ def check_host():
+@@ -227,6 +227,8 @@ def check_host():
      else:
          report("FAIL", "launcher", f"Desktop starts {session}, which doesn't exist")
  
@@ -21,7 +21,7 @@ index a00e9c7..9b32aa3 100755
      if systemctl("is-enabled", "frametop-power") == "enabled":
          if os.access(BACKLIGHT, os.W_OK):
              report("ok", "backlight", "ft-powerd can turn the displays off")
-@@ -221,6 +223,59 @@ def check_host():
+@@ -234,6 +236,59 @@ def check_host():
              report("FAIL", "backlight", f"{BACKLIGHT} isn't writable, so ft-powerd can't turn the displays off")
  
  
@@ -81,7 +81,7 @@ index a00e9c7..9b32aa3 100755
  def launcher_session():
      try:
          with open(LAUNCHER) as f:
-@@ -238,7 +293,8 @@ def installed_binaries():
+@@ -251,7 +306,8 @@ def installed_binaries():
      for unit in UNITS:
          argv = re.search(r"argv\[\]=([^;]*)", systemctl("show", "-p", "ExecStart", "--value", unit + ".service"))
          for arg in (argv.group(1).split() if argv else []):
