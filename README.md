@@ -85,7 +85,7 @@ You still need something to create `/run/opengl-driver` at boot. You have two op
 
 Frametop's own eye tracker, hand tracking, and the Bluetooth fixes each need a root step that Home Manager can't do. If you import [steamos-etc](https://github.com/JRMurr/steamos-etc-nix)'s module and enable it, the module declares them there, and `steamos-etc` installs them after a switch. Without it, these options fail with an assertion that says so.
 
-- **`frametop-install`**: a root oneshot that copies `ft-eyegrab` to `/etc/frametop/` (where Frametop looks for it) and `ft-camd` to `/var/lib/frametop/` with its file capabilities, which store paths can't carry. `ft-camd` is static, so its copy doesn't depend on the store. A new build changes the unit, so `steamos-etc` runs it again.
+- **Copies of `ft-eyegrab` and `ft-camd`** in `/etc/frametop/`, as steamos-etc files: `ft-eyegrab` where Frametop looks for it, and `ft-camd` with its file capabilities, which store paths can't carry. Turning these parts off removes them. Needs steamos-etc with [file copies](https://github.com/JRMurr/steamos-etc-nix#programs).
 - **`frametop-eyegrab`**: the eye-camera frame grabber, upstream's unit and hardening. `gaze.ownTracker.owner` (`1000:1000`) is who gets the frames.
 - **`steamframe-bt-fixups`**: upstream's Bluetooth unit, run from the store.
 

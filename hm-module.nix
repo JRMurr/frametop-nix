@@ -38,34 +38,18 @@ let
   rootNeeded = ownTracker || cfg.hands.enable || cfg.bluetooth.enable;
   hasSteamosEtc = options ? programs.steamos-etc;
   steamosEtcOn = hasSteamosEtc && config.programs.steamos-etc.enable;
-  eyegrabPath = "/etc/frametop/ft-eyegrab"; # where gaze/ft-gazed and Input Settings look
+  # Copies of the programs that can't run from the store, as steamos-etc files (removed when
+  # turned off): ft-eyegrab where gaze/ft-gazed and Input Settings look for it, and ft-camd
+  # with file capabilities, which store paths can't carry.
+  eyegrabFile = "frametop/ft-eyegrab";
+  camdFile = lib.removePrefix "/etc/" pkg.passthru.camdPath;
   # pidfd_getfd on XRService, system-wide tracepoints, and their root-only format files
   # (hands/run.sh). ft-camd drops them once it has set up.
-  camdCaps = "cap_sys_ptrace,cap_perfmon,cap_dac_read_search+ep";
-  camdPath = pkg.passthru.camdPath;
-
-  # Copies of the programs that can't run from the store: ft-eyegrab where Frametop looks for
-  # it, ft-camd with file capabilities. Copied again when a build changes (this script's path
-  # changes, so steamos-etc restarts the unit), and removed when turned off.
-  installRoot = pkgs.writeShellScript "frametop-install" ''
-    set -eu
-    ${
-      if ownTracker then
-        "install -D -m 0755 ${cfg.gaze.ownTracker.package}/bin/ft-eyegrab ${eyegrabPath}"
-      else
-        "rm -f ${eyegrabPath}"
-    }
-    ${
-      if cfg.hands.enable then
-        ''
-          install -D -m 0755 ${cfg.hands.camdPackage}/bin/ft-camd ${camdPath}.new
-          ${pkgs.libcap}/bin/setcap ${camdCaps} ${camdPath}.new
-          mv -f ${camdPath}.new ${camdPath}
-        ''
-      else
-        "rm -f ${camdPath}"
-    }
-  '';
+  camdCaps = [
+    "cap_sys_ptrace"
+    "cap_perfmon"
+    "cap_dac_read_search"
+  ];
 
   # SteamVR opens input devices only at startup, so the relay must not start for the first
   # time while SteamVR runs (it would take the mouse away from it). Home Manager starts new
@@ -489,32 +473,36 @@ in
 
       # Root parts, through steamos-etc when it's imported.
       (lib.optionalAttrs hasSteamosEtc {
-        programs.steamos-etc.services = lib.mkMerge [
-          (mkIf (ownTracker || cfg.hands.enable) {
-            frametop-install = {
-              Unit.Description = "Frametop: copy the programs that need root or capabilities out of the store";
-              Service = {
-                Type = "oneshot";
-                RemainAfterExit = true;
-                ExecStart = "${installRoot}";
-              };
-              Install.WantedBy = [ "multi-user.target" ];
+        programs.steamos-etc.files = lib.mkMerge [
+          (mkIf ownTracker {
+            ${eyegrabFile} = {
+              source = "${cfg.gaze.ownTracker.package}/bin/ft-eyegrab";
+              mode = "0755";
             };
           })
+          (mkIf cfg.hands.enable {
+            ${camdFile} = {
+              source = "${cfg.hands.camdPackage}/bin/ft-camd";
+              mode = "0755";
+              capabilities = camdCaps;
+            };
+          })
+        ];
+
+        programs.steamos-etc.services = lib.mkMerge [
           (mkIf ownTracker {
             # gaze/tracker/frametop-eyegrab.service.
             frametop-eyegrab = {
               Unit = {
                 Description = "Frametop eye-camera frames for our own eye tracker (read-only copies from SteamVR's eyetracking)";
                 Documentation = [ "file://${tree}/gaze/README.md" ];
-                Requires = [ "frametop-install.service" ];
-                After = [ "frametop-install.service" ];
-                # A new copy restarts it.
-                PartOf = [ "frametop-install.service" ];
+                # Ignored by systemd: a new build changes the unit, so steamos-etc restarts it
+                # onto the new copy.
+                X-Frametop-Build = "${cfg.gaze.ownTracker.package}";
               };
               Service = {
                 # Idle until ft-eyes touches the want file (ft-eyegrab.c).
-                ExecStart = "${eyegrabPath} --share /dev/shm/frametop-eyes-cams --owner ${cfg.gaze.ownTracker.owner} --want /dev/shm/frametop-eyes-want";
+                ExecStart = "/etc/${eyegrabFile} --share /dev/shm/frametop-eyes-cams --owner ${cfg.gaze.ownTracker.owner} --want /dev/shm/frametop-eyes-want";
                 Restart = "on-failure";
                 RestartSec = 5;
                 Nice = 5;

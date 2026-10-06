@@ -27,9 +27,9 @@
   withSettingsApps ? true,
   # The host's Plasma (Plasma isn't packaged here: the session nests the SteamOS one).
   startPlasma ? "/usr/bin/startplasma-wayland",
-  # ft-camd's copy with its capabilities (store paths can't carry them), which a root service
-  # makes (the Home Manager module's frametop-install.service).
-  camdPath ? "/var/lib/frametop/ft-camd",
+  # ft-camd's copy with its capabilities (store paths can't carry them), which the Home
+  # Manager module installs with steamos-etc.
+  camdPath ? "/etc/frametop/ft-camd",
 }:
 
 let

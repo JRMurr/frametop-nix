@@ -1,6 +1,7 @@
 # ft-camd, the headset cameras' broker (hands/Makefile). Linked statically, as upstream
 # does: it needs file capabilities, which store paths can't carry, so it runs from a copy
-# outside the store (frametop-install.service) that must not depend on the store.
+# outside the store (a steamos-etc file, /etc/frametop/ft-camd) that must not
+# depend on the store.
 {
   lib,
   stdenv,

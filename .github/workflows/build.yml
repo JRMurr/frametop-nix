@@ -58,6 +58,9 @@ jobs:
       - name: Build a Home Manager configuration with programs.frametop
         run: nix build --impure -L -f checks/home.nix -o home
 
+      - name: The root parts' copies are steamos-etc files, gone when they're off
+        run: test "$(nix eval --impure --expr 'import ./checks/root-files.nix { }')" = true
+
       - name: Without steamos-etc, the root parts fail with an assertion naming it
         run: |
           if out=$(nix eval --impure --expr 'import ./checks/needs-steamos-etc.nix { }' 2>&1); then
