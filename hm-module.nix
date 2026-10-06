@@ -1,5 +1,5 @@
 # Home Manager module for Frametop on a Steam Frame (SteamOS, not NixOS). What
-# install.sh sets up, from the flake's packages: the input relay, pointer and power
+# install.sh sets up, from the flake's packages: the input relay, pointer, power, and gaze
 # services, the ft_pointer SteamVR driver, the launcher's Desktop entry, and the settings
 # apps' menu entries. See README.md.
 self:
@@ -84,6 +84,17 @@ in
       '';
     };
 
+    gaze.enable = mkOption {
+      type = types.bool;
+      default = false;
+      description = ''
+        Gaze mode (experimental): the 3D mouse's pointer goes where you look. The
+        frametop-gaze service (ft-gazed), which starts and stops with SteamVR, with SteamVR's
+        eye tracker. Turn it on and calibrate on the Gaze page of Frametop Input Settings.
+        Needs pointer.enable.
+      '';
+    };
+
     power.enable = mkOption {
       type = types.bool;
       default = true;
@@ -134,6 +145,10 @@ in
   config = mkIf cfg.enable {
     assertions = [
       (lib.hm.assertions.assertPlatform "programs.frametop" pkgs lib.platforms.linux)
+      {
+        assertion = cfg.gaze.enable -> cfg.pointer.enable;
+        message = "programs.frametop.gaze.enable needs programs.frametop.pointer.enable: gaze mode moves the 3D mouse's pointer.";
+      }
     ];
 
     # Wrappers only (ft-layout, ft-float, the settings apps): no Qt or KDE libraries in
@@ -183,6 +198,28 @@ in
         ExecStart = "${tree}/pointer/helper/build/ft-pointer";
         Restart = "on-failure";
         RestartSec = 3;
+      };
+      Install.WantedBy = [ "steamvr.service" ];
+    };
+
+    # TODO: our own eye tracker (gaze/tracker): its frame grabber is a root system service.
+    systemd.user.services.frametop-gaze = mkIf cfg.gaze.enable {
+      Unit = {
+        Description = "Frametop gaze service: the eye tracking, corrected, for the pointer's gaze mode";
+        Documentation = [ "file://${tree}/gaze/README.md" ];
+        # ft-gaze is a SteamVR overlay client; it starts and stops with SteamVR.
+        After = [
+          "steamvr.service"
+          "frametop-pointer.service"
+        ];
+        PartOf = [ "steamvr.service" ];
+        Requisite = [ "steamvr.service" ];
+      };
+      Service = {
+        ExecStart = "${pkg}/libexec/frametop/python3 ${tree}/gaze/ft-gazed";
+        Restart = "on-failure";
+        RestartSec = 3;
+        TimeoutStopSec = 5;
       };
       Install.WantedBy = [ "steamvr.service" ];
     };

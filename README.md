@@ -10,9 +10,9 @@ There's a write up of a full frame setup using it in [this blog post](https://jo
 
 You get the multi-screen desktop, the input relay, the 3D mouse, the power service, and both settings apps.
 
-Gaze mode, hand tracking, and remote desktop aren't packaged yet. They still build or run in upstream's `dev` container, so their installers need that setup. Keep `REMOTE=0` in your config since remote desktop still enters the container. The Bluetooth fixes don't need the container, install them from an upstream checkout with `setup/bluetooth/install.sh` (it asks for `sudo`).
+Gaze mode (`programs.frametop.gaze.enable`) works with SteamVR's eye tracker. Frametop's own eye tracker, hand tracking, and remote desktop aren't packaged yet. They still build or run in upstream's `dev` container, so their installers need that setup. Keep `REMOTE=0` in your config since remote desktop still enters the container. The Bluetooth fixes don't need the container, install them from an upstream checkout with `setup/bluetooth/install.sh` (it asks for `sudo`).
 
-TODO: package gaze mode, hand tracking, and remote desktop. Gaze's frame grabber is a root service and `ft-camd` needs file capabilities (which store paths can't carry), so both would still need a `sudo` step.
+TODO: package Frametop's own eye tracker, hand tracking, and remote desktop. The eye tracker's frame grabber is a root service and `ft-camd` needs file capabilities (which store paths can't carry), so both would still need a `sudo` step.
 
 ## Usage
 
@@ -49,6 +49,7 @@ TODO: package gaze mode, hand tracking, and remote desktop. Gaze's frame grabber
           programs.frametop.enable = true;
           # programs.frametop.pointer.enable = false;  # no 3D mouse
           # programs.frametop.power.enable = false;    # no display power service
+          # programs.frametop.gaze.enable = true;      # gaze mode (experimental)
           # programs.frametop.launcher.enable = false; # the launcher keeps the stock desktop
           # programs.frametop.shareConfig = false;     # apps in the desktop get their own config
         }
@@ -153,6 +154,8 @@ CI (`.github/workflows/build.yml`) runs on PRs and pushes to main, natively on G
 | 0001 env hooks | `FRAMETOP_SCREENS_BIN`, `FRAMETOP_PYTHON`, `FRAMETOP_STARTPLASMA`, so the package can point the scripts at store paths and run ft-screens on the host. Also a writable decoration copy, and `host_command` outside distrobox |
 | 0002 SHARE_CONFIG | `session/config_links.py`: apps in the desktop keep your normal config (`programs.frametop.shareConfig`) |
 | 0003 update-check | Checks that Nix-built programs link everything SteamVR's `vrclient.so` needs |
+| 0004 gaze mmap layout | [Upstream PR #26](https://github.com/DeeJanuz/frametop/pull/26): reads SteamVR's eye tracking on newer SteamOS. Drop once merged |
+| 0005 gaze host builds | `FRAMETOP_HOST_BUILDS`: the gaze service runs `ft-gaze` and `ft-gazepanel` on the host, not in the container |
 
 To change them, in a frametop checkout (`git am ../frametop-nix/patches/*` on upstream main recreates the branch):
 

@@ -20,6 +20,7 @@ in
       home.stateVersion = "25.11";
       targets.genericLinux.enable = true;
       programs.frametop.enable = true;
+      programs.frametop.gaze.enable = true;
     }
   ];
 }).activationPackage

@@ -6,7 +6,6 @@
 {
   lib,
   stdenv,
-  fetchurl,
   pkg-config,
   autoAddDriverRunpath,
   wlroots_0_20,
@@ -19,16 +18,11 @@
   libgbm,
   openvr,
   vrclientDeps,
+  # keyboard.cpp's key labels.
+  stbTruetype,
   src,
 }:
 
-let
-  # keyboard.cpp's key labels; the same pin as screens/build.sh.
-  stbTruetype = fetchurl {
-    url = "https://raw.githubusercontent.com/nothings/stb/2c980bb59875b0d32144a71867fbdebb2f77cd20/stb_truetype.h";
-    hash = "sha256-7NMLBeDdT+o6E8JoEN2eGZLcN5BJSCw5PVoZ5rUJCqs=";
-  };
-in
 stdenv.mkDerivation {
   pname = "ft-screens";
   version = "0-unstable";

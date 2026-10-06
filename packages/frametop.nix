@@ -1,8 +1,8 @@
 # Frametop's scripts, Python tools, and settings apps, plus the programs from the other
 # packages, as one tree in share/frametop laid out like the repo. The scripts find each
-# other by relative path, so they work unchanged. Only the defaults of three environment
-# variables change (FRAMETOP_SCREENS_BIN, FRAMETOP_PYTHON, FRAMETOP_STARTPLASMA); nothing is
-# exported, so the host's Plasma starts with a clean environment.
+# other by relative path, so they work unchanged. Only the defaults of four environment
+# variables change (FRAMETOP_SCREENS_BIN, FRAMETOP_PYTHON, FRAMETOP_STARTPLASMA,
+# FRAMETOP_HOST_BUILDS); nothing is exported, so the host's Plasma starts with a clean environment.
 #
 # withSettingsApps adds Frametop Display Settings and Frametop Input Settings (PySide6 and
 # Kirigami). Without them (frametop-scripts), nothing depends on Qt.
@@ -19,6 +19,7 @@
   ft-screens,
   ft-pointer,
   ft-powerd,
+  ft-gaze,
   src,
   withSettingsApps ? true,
   # The host's Plasma (Plasma isn't packaged here: the session nests the SteamOS one).
@@ -72,7 +73,7 @@ stdenvNoCC.mkDerivation {
     runHook preInstall
     tree=$out/${share}
     mkdir -p $tree
-    cp -r README.md LICENSE desktops.sh decoration display-settings docs float input \
+    cp -r README.md LICENSE desktops.sh decoration display-settings docs float gaze input \
       input-settings layout remote scripts session steam $tree/
     mkdir -p $tree/pointer/helper $tree/screens/build $tree/power/build
     cp -r pointer/helper/actions $tree/pointer/helper/
@@ -83,6 +84,8 @@ stdenvNoCC.mkDerivation {
     mkdir -p $tree/pointer/helper/build
     ln -s ${ft-pointer}/lib/ft-pointer/bin/ft-pointer $tree/pointer/helper/build/ft-pointer
     ln -s ${ft-powerd}/bin/ft-powerd $tree/power/build/ft-powerd
+    mkdir -p $tree/gaze/build
+    ln -s ${ft-gaze}/lib/ft-gaze/bin/ft-gaze ${ft-gaze}/lib/ft-gaze/bin/ft-gazepanel $tree/gaze/build/
 
     makeWrapper ${scriptPython}/bin/python3 $out/libexec/frametop/ft-python \
       --prefix GI_TYPELIB_PATH : ${typelibPath}
@@ -97,6 +100,9 @@ stdenvNoCC.mkDerivation {
       substituteInPlace $tree/$f \
         --replace-fail '"''${FRAMETOP_PYTHON:-python3}"' "\"\''${FRAMETOP_PYTHON:-$out/libexec/frametop/ft-python}\""
     done
+    # gaze/build's programs above are built for the host.
+    substituteInPlace $tree/gaze/gazecal.py \
+      --replace-fail '"FRAMETOP_HOST_BUILDS", "0"' '"FRAMETOP_HOST_BUILDS", "1"'
     # The repo's relay unit uses /usr/bin/python3; the Home Manager unit uses this one.
     ln -s ${scriptPython}/bin/python3 $out/libexec/frametop/python3
 
