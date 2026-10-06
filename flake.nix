@@ -4,7 +4,8 @@
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
     frametop = {
-      url = "github:DeeJanuz/frametop";
+      # Upstream's experimental branch: merged PRs land there first.
+      url = "github:DeeJanuz/frametop/experimental";
       flake = false;
     };
   };
@@ -74,7 +75,8 @@
         in
         {
           inherit (packages) ft-pointer-driver ft-gaze frametop-scripts;
-          # ~/.config: SHARE_CONFIG's links, and conf-migrate.sh never emptying frametop.conf.
+          # ~/.config: SHARE_CONFIG's links, conf-migrate.sh never emptying frametop.conf, and the
+          # Native Desktop entry.
           config =
             pkgs.runCommand "frametop-config-test"
               {
@@ -89,6 +91,7 @@
                 cp -r ${packages.frametop-src}/{session,scripts} . && chmod -R u+w session scripts
                 (cd session && python3 -m pytest -q -p no:cacheprovider test_config_links.py)
                 python3 scripts/test_conf_migrate.py
+                python3 ${./checks/test_native_desktop.py} ${packages.frametop-scripts}
                 touch $out
               '';
           # The packaged tree runs gaze's and hand tracking's programs on the host

@@ -212,6 +212,11 @@ in
         defaultText = literalExpression ''"''${host.steamvr}/bin/linuxarm64/vrpathreg"'';
         description = "The host's vrpathreg, which registers the ft_pointer driver with SteamVR.";
       };
+      stockLauncher = mkOption {
+        type = types.str;
+        default = "/usr/share/applications/deckard-nested-desktop.desktop";
+        description = "SteamOS's launcher entry for its own desktop, copied as \"Native Desktop\".";
+      };
       kwriteconfig = mkOption {
         type = types.str;
         default = "/usr/bin/kwriteconfig6";
@@ -466,6 +471,16 @@ in
               run mkdir -p "$(dirname "$shortcuts")"
               run ${cfg.host.kwriteconfig} --file "$shortcuts" --group services --group ft-layout-reset.desktop --key _launch 'Meta+Shift+R'
               run ${cfg.host.kwriteconfig} --file "$shortcuts" --group services --group ft-screens-toggle.desktop --key _launch 'Meta+Shift+H'
+            fi
+
+            # "Native Desktop", the stock SteamOS desktop next to Frametop's, as desktops.sh
+            # install makes it: a copy of SteamOS's entry, so made here, not in the store.
+            native=${lib.escapeShellArg config.xdg.dataHome}/applications/native-deckard-nested-desktop.desktop
+            if ${lib.boolToString cfg.launcher.enable} && [ -r ${lib.escapeShellArg cfg.host.stockLauncher} ]; then
+              run mkdir -p "$(dirname "$native")"
+              run ${pkg}/libexec/frametop/native-desktop ${lib.escapeShellArg cfg.host.stockLauncher} "$native"
+            else
+              run rm -f "$native"
             fi
           '';
         };

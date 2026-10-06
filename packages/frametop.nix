@@ -11,6 +11,8 @@
   stdenvNoCC,
   makeWrapper,
   bash,
+  coreutils,
+  gnused,
   python3,
   glib,
   gobject-introspection,
@@ -125,6 +127,17 @@ stdenvNoCC.mkDerivation {
     done
     substituteInPlace $tree/hands/ft-cutouts \
       --replace-fail 'host_builds=''${FRAMETOP_HOST_BUILDS:-0}' 'host_builds=''${FRAMETOP_HOST_BUILDS:-1}'
+    # desktops.sh install's "Native Desktop": SteamOS's entry for its own desktop, renamed and
+    # without X-Steam-Special, so Steam singles out only Frametop's (native-desktop STOCK DEST).
+    cat > $out/libexec/frametop/native-desktop <<'EOF'
+    #!${bash}/bin/bash
+    set -eu
+    ${gnused}/bin/sed -e 's/^Name=.*/Name=Native Desktop/' -e '/^Name\[/d' -e '/^X-Steam-Special=/d' -e '/pick this out/d' \
+      "$1" > "$2.new"
+    ${coreutils}/bin/mv "$2.new" "$2"
+    EOF
+    chmod +x $out/libexec/frametop/native-desktop
+
     # The repo's relay unit uses /usr/bin/python3; the Home Manager unit uses this one.
     ln -s ${scriptPython}/bin/python3 $out/libexec/frametop/python3
 

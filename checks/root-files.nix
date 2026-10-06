@@ -38,10 +38,11 @@ let
 in
 on."frametop/ft-eyegrab".mode == "0755"
 && on."frametop/ft-camd".mode == "0755"
-&& on."frametop/ft-camd".capabilities == [
-  "cap_sys_ptrace"
-  "cap_perfmon"
-  "cap_dac_read_search"
-]
+&&
+  on."frametop/ft-camd".capabilities == [
+    "cap_sys_ptrace"
+    "cap_perfmon"
+    "cap_dac_read_search"
+  ]
 && !(off ? "frametop/ft-eyegrab")
 && !(off ? "frametop/ft-camd")

@@ -45,7 +45,7 @@ index f678c9d..4a84b13 100755
      "$here/ft-handsctl" cutouts on >/dev/null || true
      sleep 4
 diff --git a/hands/rec/session.py b/hands/rec/session.py
-index 1bf2a59..da7eb1d 100755
+index bb07988..6f20e51 100755
 --- a/hands/rec/session.py
 +++ b/hands/rec/session.py
 @@ -25,6 +25,7 @@ each is a part of the take's recording (sets-N.bin). --auto is the old timed flo
@@ -88,7 +88,7 @@ index 1bf2a59..da7eb1d 100755
  def host_command(*cmd):
      """argv to run a command on the SteamOS host from the dev container (as in
      display-settings: distrobox-host-exec needs the user's real session bus). It runs from the
-@@ -614,9 +640,7 @@ class Recorder:
+@@ -619,9 +645,7 @@ class Recorder:
                  "--sides", "auto" if swap is None else "1" if swap else "0"]
          if ring:
              argv += ["--ring", ring]
@@ -99,7 +99,7 @@ index 1bf2a59..da7eb1d 100755
          self.started_ns = mono_ns()
  
      def exited(self):
-@@ -1600,13 +1624,13 @@ class Session:
+@@ -1605,13 +1629,13 @@ class Session:
  
      def _start_tracker(self):
          up = os.path.join(REPO, "scripts", "container-up.sh")

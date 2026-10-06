@@ -2,7 +2,7 @@
 
 Nix packages and a Home Manager module for [Frametop](https://github.com/DeeJanuz/frametop) on the Steam Frame (SteamOS, aarch64-linux, standalone Home Manager, not NixOS).
 
-Upstream builds Frametop in a Fedora `dev` container and sets it up with `install.sh`. This flake builds it with nixpkgs instead, and the Home Manager module sets up the same things `install.sh` does. This isn't part of upstream, it pins an upstream commit and carries a few [patches](#patches) on top.
+Upstream builds Frametop in a Fedora `dev` container and sets it up with `install.sh`. This flake builds it with nixpkgs instead, and the Home Manager module sets up the same things `install.sh` does. This isn't part of upstream, it pins a commit of upstream's `experimental` branch (where merged PRs land first) and carries a few [patches](#patches) on top.
 
 There's a write up of a full frame setup using it in [this blog post](https://johns.codes/blog/nix-on-steam-frame).
 
@@ -31,7 +31,7 @@ TODO: package remote desktop, the gaze probe (a development tool), and hand trac
       # Your nixpkgs needs wlroots_0_20.
       inputs.nixpkgs.follows = "nixpkgs";
       # To use a different upstream commit:
-      # inputs.frametop.url = "github:DeeJanuz/frametop/<rev>";
+      # inputs.frametop.url = "github:DeeJanuz/frametop/<rev>";  # (default: the experimental branch)
     };
   };
 
@@ -118,10 +118,10 @@ setup/bluetooth/install.sh uninstall  # asks for sudo
 - **`frametop-gaze`** (`gaze.enable`): starts and stops with SteamVR. Turn gaze mode on and calibrate on the Gaze page of Frametop Input Settings. With `gaze.ownTracker.enable`, `GAZE_TRACKER=auto` picks Frametop's own tracker.
 - **`frametop-camd`**, **`frametop-hands`**, and **`frametop-camwatch`** (`hands.enable`): as `hands/run.sh install` leaves them. Hand tracking doesn't start with SteamVR: `ft-handsctl on|off`, or `ft-cutouts on|off` for the cutouts without gestures (both on your `PATH`).
 - **The ft_pointer driver**: linked at `~/.local/share/frametop/ft_pointer` (the same path `pointer/driver/install.sh` uses) and registered once with the host's `vrpathreg`. The path never changes between generations, so SteamVR's config isn't touched again.
-- **Menu entries**: the launcher's Desktop entry (the `deckard-nested-desktop.desktop` override `desktops.sh install` writes), Frametop Display Settings, Frametop Input Settings, Reset Screen Layout, Hide/Show Screens, and their shortcuts. Activation rewrites each profile's entry (`ft-layout launchers`) since those point into the store.
+- **Menu entries**: the launcher's Desktop entry (the `deckard-nested-desktop.desktop` override `desktops.sh install` writes), Native Desktop (its copy of SteamOS's entry for the stock desktop, made at activation from `host.stockLauncher`), Frametop Display Settings, Frametop Input Settings, Reset Screen Layout, Hide/Show Screens, and their shortcuts. Activation rewrites each profile's entry (`ft-layout launchers`) since those point into the store.
 - **`~/.config/frametop.conf`**: not managed, since the settings apps write to it. If it's missing it gets created from the example. Activation sets `POINTER` from `pointer.enable` and `SHARE_CONFIG` from `shareConfig` (both on by default) and leaves everything else alone.
 
-The host programs it uses are options under `programs.frametop.host`: `steamvr` (`/opt/steamvr`), `startPlasma`, `vrpathreg`, and `kwriteconfig`.
+The host programs it uses are options under `programs.frametop.host`: `steamvr` (`/opt/steamvr`), `startPlasma`, `vrpathreg`, `kwriteconfig`, and `stockLauncher`.
 
 Upstream's scripts still work from the tree, for example `$(dirname $(readlink -f $(which ft-layout)))/../desktops.sh status`. Just don't use `desktops.sh install`, `uninstall`, or `relay install`, Home Manager owns those files now.
 
@@ -145,7 +145,7 @@ Upstream's scripts still work from the tree, for example `$(dirname $(readlink -
 
 `share/frametop` mirrors the upstream repo. The scripts find each other by relative path (`$here/../layout/ft-layout`) and ft-screens finds `ft-layout` from its own path, so each program sits where upstream's build would put it (`screens/build/ft-screens`). The settings apps live in the same tree since they import `ft_layout` and call `desktops.sh` by relative path.
 
-Upstream's scripts read four env vars (added by [patches](#patches) 0001, 0005, and 0006): `FRAMETOP_SCREENS_BIN` (run ft-screens on the host, not in the container), `FRAMETOP_PYTHON`, `FRAMETOP_STARTPLASMA`, and `FRAMETOP_HOST_BUILDS` (run gaze's and hand tracking's programs on the host). The package defaults them to store paths but exports nothing, so the host Plasma the session starts gets a clean environment (no `LD_LIBRARY_PATH`, no Qt paths).
+Upstream's scripts read four env vars (added by [patches](#patches) 0001, 0004, and 0005): `FRAMETOP_SCREENS_BIN` (run ft-screens on the host, not in the container), `FRAMETOP_PYTHON`, `FRAMETOP_STARTPLASMA`, and `FRAMETOP_HOST_BUILDS` (run gaze's and hand tracking's programs on the host). The package defaults them to store paths but exports nothing, so the host Plasma the session starts gets a clean environment (no `LD_LIBRARY_PATH`, no Qt paths).
 
 ft-screens (EGL, GLES, GBM) has `/run/opengl-driver/lib` first in its RUNPATH. The settings apps find the same drivers through nixpkgs' libglvnd, which looks there too.
 
@@ -173,24 +173,23 @@ CI (`.github/workflows/build.yml`) runs on PRs and pushes to main, natively on G
 
 ## Patches
 
-`patches/` is the source of truth. They're edited as commits on a `nix-patches` branch in a local frametop checkout, rebased on upstream main, then exported here. `packages/source.nix` applies them in order, so a patch that stops applying fails every build.
+`patches/` is the source of truth. They're edited as commits on a `nix-patches` branch in a local frametop checkout, rebased on upstream's `experimental`, then exported here. `packages/source.nix` applies them in order, so a patch that stops applying fails every build.
 
 | Patch | Why |
 | --- | --- |
 | 0001 env hooks | `FRAMETOP_SCREENS_BIN`, `FRAMETOP_PYTHON`, `FRAMETOP_STARTPLASMA`, so the package can point the scripts at store paths and run ft-screens on the host. Also a writable decoration copy, and `host_command` outside distrobox |
 | 0002 SHARE_CONFIG | `session/config_links.py`: apps in the desktop keep your normal config (`programs.frametop.shareConfig`) |
 | 0003 update-check | Checks that Nix-built programs link everything SteamVR's `vrclient.so` needs |
-| 0004 gaze mmap layout | [Upstream PR #26](https://github.com/DeeJanuz/frametop/pull/26): reads SteamVR's eye tracking on newer SteamOS. Drop once merged |
-| 0005 gaze host builds | `FRAMETOP_HOST_BUILDS`: the gaze service runs `ft-gaze`, `ft-gazepanel`, and `ft-eyes` on the host, not in the container |
-| 0006 hands host builds | The same for `ft-hands`, in `ft-cutouts` and the hand recorder |
-| 0007 conf-migrate | `scripts/conf-migrate.sh` stops at an error instead of emptying `frametop.conf` |
-| 0008 hands session | `ft-handsctl` and `ft-cutouts` reach the real user session from a terminal in the Frametop desktop |
-| 0009 hands caps | `ft-cutouts` and the hand recorder check `ft-camd`'s capabilities on the file, not the tree's link to it |
+| 0004 gaze host builds | `FRAMETOP_HOST_BUILDS`: the gaze service runs `ft-gaze`, `ft-gazepanel`, and `ft-eyes` on the host, not in the container |
+| 0005 hands host builds | The same for `ft-hands`, in `ft-cutouts` and the hand recorder |
+| 0006 conf-migrate | `scripts/conf-migrate.sh` stops at an error instead of emptying `frametop.conf` |
+| 0007 hands session | `ft-handsctl` and `ft-cutouts` reach the real user session from a terminal in the Frametop desktop |
+| 0008 hands caps | `ft-cutouts` and the hand recorder check `ft-camd`'s capabilities on the file, not the tree's link to it |
 
-To change them, in a frametop checkout (`git am ../frametop-nix/patches/*` on upstream main recreates the branch):
+To change them, in a frametop checkout (`git am ../frametop-nix/patches/*` on upstream `experimental` recreates the branch):
 
 ```sh
-git fetch https://github.com/DeeJanuz/frametop main
+git fetch https://github.com/DeeJanuz/frametop experimental
 git switch nix-patches && git rebase FETCH_HEAD   # fix conflicts, edit, commit
 rm ../frametop-nix/patches/*
 git format-patch --no-signature --zero-commit -N FETCH_HEAD -o ../frametop-nix/patches

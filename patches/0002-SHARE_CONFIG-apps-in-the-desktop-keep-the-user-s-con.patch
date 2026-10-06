@@ -140,7 +140,7 @@ index 0000000..0ce479b
 +if __name__ == "__main__":
 +    main()
 diff --git a/session/frametop-session.sh b/session/frametop-session.sh
-index 5ba9c20..68580c0 100755
+index 3dfb611..a929f37 100755
 --- a/session/frametop-session.sh
 +++ b/session/frametop-session.sh
 @@ -34,7 +34,7 @@ for var in $(compgen -e); do
@@ -160,7 +160,7 @@ index 5ba9c20..68580c0 100755
  # Floating windows (screens backend): KWin gets this many spare outputs after the screens,
  # and ft-floatd floats a window on each (docs/floating-windows.md). Changing it takes a
  # desktop restart.
-@@ -184,6 +185,13 @@ export XDG_CONFIG_HOME=$HOME/.config/frametop
+@@ -185,6 +186,13 @@ export XDG_CONFIG_HOME=$HOME/.config/frametop
  export XDG_STATE_HOME=$HOME/.local/state/frametop
  mkdir -p "$XDG_CONFIG_HOME" "$XDG_STATE_HOME"
  
