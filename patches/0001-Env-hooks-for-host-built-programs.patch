@@ -65,7 +65,7 @@ index 4706963..f535539 100755
 -exec python3 "$(dirname "$(readlink -f "$0")")/ft_layout.py" "$@"
 +exec "${FRAMETOP_PYTHON:-python3}" "$(dirname "$(readlink -f "$0")")/ft_layout.py" "$@"
 diff --git a/session/frametop-session.sh b/session/frametop-session.sh
-index 404fa36..9b42d6d 100755
+index 4935e77..5ba9c20 100755
 --- a/session/frametop-session.sh
 +++ b/session/frametop-session.sh
 @@ -99,12 +99,19 @@ if [ "${1:-}" != --inner ]; then
@@ -91,7 +91,7 @@ index 404fa36..9b42d6d 100755
      "${screen_args[@]}" --spares "$float_slots" > /tmp/frametop-screens.log 2>&1 < /dev/null &
    stop_screens() { pkill -x ft-screens 2>/dev/null || true; }
    trap stop_screens EXIT
-@@ -211,7 +218,7 @@ fi
+@@ -226,7 +233,7 @@ fi
  # apps' desktop files with that action, first in XDG_DATA_DIRS, so only this desktop sees
  # them. Written now, before Plasma reads them; ft-floatd keeps them up to date.
  if [ "$float_slots" -gt 0 ]; then
@@ -100,7 +100,7 @@ index 404fa36..9b42d6d 100755
    export XDG_DATA_DIRS=$HOME/.local/share/frametop/apps:${XDG_DATA_DIRS:-/usr/local/share:/usr/share}
  fi
  
-@@ -226,6 +233,7 @@ if [ "$float_slots" -gt 0 ]; then
+@@ -241,6 +248,7 @@ if [ "$float_slots" -gt 0 ]; then
    rm -rf "$deco_dir" "$deco_dir"_try*  # (decoration/apply.sh's copies)
    mkdir -p "$(dirname "$deco_dir")"
    cp -r "$here/../decoration" "$deco_dir"
@@ -108,7 +108,7 @@ index 404fa36..9b42d6d 100755
    rm -f "$deco_dir/apply.sh"
    kwriteconfig6 --file "$kwinrc" --group org.kde.kdecoration2 --key library org.kde.kwin.aurorae
    kwriteconfig6 --file "$kwinrc" --group org.kde.kdecoration2 --key theme "$deco"
-@@ -275,6 +283,7 @@ kwriteconfig6 --file "$XDG_CONFIG_HOME/ksmserverrc" --group General --key loginM
+@@ -290,6 +298,7 @@ kwriteconfig6 --file "$XDG_CONFIG_HOME/ksmserverrc" --group General --key loginM
  # Plasma keeps a panel on a screen number, and never moves one whose screen this desktop
  # doesn't have, like a spare output or a screen a smaller layout dropped. Put such a panel
  # back on the first (primary) screen before Plasma reads the file (session/fix-panels.py).

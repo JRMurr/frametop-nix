@@ -109,7 +109,8 @@
                 (cd gaze
                   python3 -c 'import gazecal; assert gazecal.BUILDS == gazecal.Builds.HOST, gazecal.BUILDS'
                   python3 -m pytest -q -p no:cacheprovider test_gazecal_builds.py
-                  python3 test/idle-test.py)
+                  python3 test/idle-test.py
+                  python3 test/first-calibration-test.py)
 
                 grep -qF 'host_builds=''${FRAMETOP_HOST_BUILDS:-1}' hands/ft-cutouts
                 python3 hands/tests/test_cutouts.py

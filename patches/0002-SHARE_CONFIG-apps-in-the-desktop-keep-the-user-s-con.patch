@@ -140,7 +140,7 @@ index 0000000..0ce479b
 +if __name__ == "__main__":
 +    main()
 diff --git a/session/frametop-session.sh b/session/frametop-session.sh
-index 9b42d6d..1700010 100755
+index 5ba9c20..68580c0 100755
 --- a/session/frametop-session.sh
 +++ b/session/frametop-session.sh
 @@ -34,7 +34,7 @@ for var in $(compgen -e); do
@@ -175,7 +175,7 @@ index 9b42d6d..1700010 100755
  # krdp on 127.0.0.1, and session/vnc-bridge.sh re-serves its primary screen over VNC. krdpserver runs from the container, so KWin can't
  # match it to an installed app. KWin's permission check for screencast and fake
 diff --git a/session/frametop.conf.example b/session/frametop.conf.example
-index 1886482..711e1b6 100644
+index 4250a0d..5f31de6 100644
 --- a/session/frametop.conf.example
 +++ b/session/frametop.conf.example
 @@ -9,6 +9,7 @@ PHYS_WIDTH=1.6     # gamescope: panel width in metres, docked

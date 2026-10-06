@@ -103,10 +103,10 @@ index f261ba3..48b3633 100644
  
  def px_from_deg(j, dy, dp):
 diff --git a/gaze/gazecheck.py b/gaze/gazecheck.py
-index a912f2e..5c11b91 100644
+index 23f32c5..b34d6c7 100644
 --- a/gaze/gazecheck.py
 +++ b/gaze/gazecheck.py
-@@ -70,7 +70,7 @@ import time
+@@ -77,7 +77,7 @@ import time
  from pathlib import Path
  
  from fitcheck import MIN_REGION, FitCheck, wrap
@@ -115,7 +115,7 @@ index a912f2e..5c11b91 100644
  
  REPO = Path(__file__).resolve().parents[1]
  PANEL_PROG = REPO / "gaze" / "build" / "ft-gazepanel"
-@@ -246,9 +246,7 @@ class Checks:
+@@ -253,9 +253,7 @@ class Checks:
              return
          env = dict(os.environ)
          env["XDG_RUNTIME_DIR"] = f"/run/user/{os.getuid()}"

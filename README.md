@@ -159,7 +159,7 @@ nix build .#frametop-apps                     # on the Frame, or an aarch64 buil
 nix build .#packages.x86_64-linux.ft-screens  # the same derivations on a PC
 ```
 
-`nix flake check` builds the driver (with its install checks), `ft-gaze`, and `frametop-scripts`, runs `session/test_config_links.py`, and runs gaze's tests on the packaged tree. It skips the settings apps so it doesn't have to build Qt.
+`nix flake check` builds the driver (with its install checks), `ft-gaze`, and `frametop-scripts`, runs `session/test_config_links.py`, and runs gaze's and hand tracking's tests on the packaged tree. It skips the settings apps so it doesn't have to build Qt.
 
 To build against a local upstream checkout:
 

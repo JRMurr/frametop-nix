@@ -3,11 +3,11 @@
     "frametop": {
       "flake": false,
       "locked": {
-        "lastModified": 1791165012,
-        "narHash": "sha256-XHb97TadTwivg9j8XKbhSrCDpla3WrvHefLDSMSwvZc=",
+        "lastModified": 1791240843,
+        "narHash": "sha256-8yzIjoZG0uF6weM2hBn2c8sN4m2UNzbCzFbfdwbf9YU=",
         "owner": "DeeJanuz",
         "repo": "frametop",
-        "rev": "ca9492be000a24f8e539607a02ee5d12f41801a6",
+        "rev": "0821b1013eb5b790ddaeaffd46cd86ffb6c49ea1",
         "type": "github"
       },
       "original": {
