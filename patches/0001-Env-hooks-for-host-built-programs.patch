@@ -12,8 +12,8 @@ systemd-run at the real session's runtime dir when not in distrobox.
  float/ft-float-apps                     |  2 +-
  float/ft-floatd                         |  2 +-
  layout/ft-layout                        |  2 +-
- session/frametop-session.sh             | 19 ++++++++++++++-----
- 5 files changed, 23 insertions(+), 11 deletions(-)
+ session/frametop-session.sh             | 21 +++++++++++++++------
+ 5 files changed, 24 insertions(+), 12 deletions(-)
 
 diff --git a/display-settings/ft_display_settings.py b/display-settings/ft_display_settings.py
 index e47f051..c2a3bc0 100644
@@ -65,7 +65,7 @@ index 4706963..f535539 100755
 -exec python3 "$(dirname "$(readlink -f "$0")")/ft_layout.py" "$@"
 +exec "${FRAMETOP_PYTHON:-python3}" "$(dirname "$(readlink -f "$0")")/ft_layout.py" "$@"
 diff --git a/session/frametop-session.sh b/session/frametop-session.sh
-index b212cee..1bdda98 100755
+index 404fa36..9b42d6d 100755
 --- a/session/frametop-session.sh
 +++ b/session/frametop-session.sh
 @@ -99,12 +99,19 @@ if [ "${1:-}" != --inner ]; then
@@ -108,9 +108,12 @@ index b212cee..1bdda98 100755
    rm -f "$deco_dir/apply.sh"
    kwriteconfig6 --file "$kwinrc" --group org.kde.kdecoration2 --key library org.kde.kwin.aurorae
    kwriteconfig6 --file "$kwinrc" --group org.kde.kdecoration2 --key theme "$deco"
-@@ -238,4 +246,5 @@ fi
- # with both, apps would open twice.
- kwriteconfig6 --file "$XDG_CONFIG_HOME/ksmserverrc" --group General --key loginMode emptySession
+@@ -275,6 +283,7 @@ kwriteconfig6 --file "$XDG_CONFIG_HOME/ksmserverrc" --group General --key loginM
+ # Plasma keeps a panel on a screen number, and never moves one whose screen this desktop
+ # doesn't have, like a spare output or a screen a smaller layout dropped. Put such a panel
+ # back on the first (primary) screen before Plasma reads the file (session/fix-panels.py).
+-python3 "$here/fix-panels.py" --screens "$screens" || true
++"${FRAMETOP_PYTHON:-python3}" "$here/fix-panels.py" --screens "$screens" || true
  
 -dbus-run-session startplasma-wayland
 +# FRAMETOP_STARTPLASMA: the host's Plasma, when PATH might find another one first.

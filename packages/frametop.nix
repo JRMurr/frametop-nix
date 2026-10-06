@@ -73,7 +73,7 @@ stdenvNoCC.mkDerivation {
     tree=$out/${share}
     mkdir -p $tree
     cp -r README.md LICENSE desktops.sh decoration display-settings docs float input \
-      input-settings layout remote scripts session $tree/
+      input-settings layout remote scripts session steam $tree/
     mkdir -p $tree/pointer/helper $tree/screens/build $tree/power/build
     cp -r pointer/helper/actions $tree/pointer/helper/
 

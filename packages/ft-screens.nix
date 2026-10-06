@@ -67,7 +67,7 @@ stdenv.mkDerivation {
     $cxx -c -o build/handtest.o handtest.cpp
     vrlibs="$(pkg-config --libs egl glesv2 gbm openvr) ${vrclientDeps.ldflags}"
     $CXX -o build/ft-screens build/compositor.o build/vr.o build/keyboard.o build/handcut.o \
-      $(pkg-config --libs wlroots-0.20 wayland-server xkbcommon) $vrlibs
+      $(pkg-config --libs wlroots-0.20 wayland-server xkbcommon pixman-1) $vrlibs
     $CXX -o build/ft-handtest build/handtest.o build/handcut.o $vrlibs
     runHook postBuild
   '';
