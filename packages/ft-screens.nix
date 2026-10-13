@@ -51,8 +51,10 @@ stdenv.mkDerivation {
     runHook preBuild
     mkdir -p build/include
     cp ${stb.truetype} build/include/stb_truetype.h
-    $CC -std=c11 -O2 -Wall -Wno-unused-parameter -c -o build/compositor.o compositor.c \
-      $(pkg-config --cflags wlroots-0.20 wayland-server xkbcommon libdrm pixman-1)
+    cc="$CC -std=c11 -O2 -Wall -Wno-unused-parameter \
+      $(pkg-config --cflags wlroots-0.20 wayland-server xkbcommon libdrm pixman-1)"
+    $cc -c -o build/compositor.o compositor.c
+    $cc -c -o build/remote.o remote.c
     cxx="$CXX -std=c++17 -O2 -Wall -Wno-missing-field-initializers -Ibuild/include \
       $(pkg-config --cflags egl glesv2 gbm libdrm openvr)"
     $cxx -c -o build/vr.o vr.cpp
@@ -60,7 +62,7 @@ stdenv.mkDerivation {
     $cxx -c -o build/handcut.o handcut.cpp
     $cxx -c -o build/handtest.o handtest.cpp
     vrlibs="$(pkg-config --libs egl glesv2 gbm openvr) ${vrclientDeps.ldflags}"
-    $CXX -o build/ft-screens build/compositor.o build/vr.o build/keyboard.o build/handcut.o \
+    $CXX -o build/ft-screens build/compositor.o build/remote.o build/vr.o build/keyboard.o build/handcut.o \
       $(pkg-config --libs wlroots-0.20 wayland-server xkbcommon pixman-1) $vrlibs
     $CXX -o build/ft-handtest build/handtest.o build/handcut.o $vrlibs
     runHook postBuild

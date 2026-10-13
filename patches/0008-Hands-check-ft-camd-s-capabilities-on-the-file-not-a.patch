@@ -29,10 +29,10 @@ index 2035a69..e115f72 100755
      if systemctl --user -q is-active frametop-camd.service frametop-hands.service; then
        echo "stopping ft-handsctl's hand tracking (it has pinches and grips)"
 diff --git a/hands/rec/session.py b/hands/rec/session.py
-index 6f20e51..b7ea8c6 100755
+index 5ffe629..f8b222f 100755
 --- a/hands/rec/session.py
 +++ b/hands/rec/session.py
-@@ -382,6 +382,15 @@ def stop_unit(unit):
+@@ -404,6 +404,15 @@ def stop_unit(unit):
      subprocess.run(host_command("systemctl", "--user", "stop", unit), capture_output=True, timeout=30)
  
  
@@ -48,14 +48,14 @@ index 6f20e51..b7ea8c6 100755
  def ring_alive(path=None):
      try:
          r = Ring(path or os.path.join(run_dir(), "cam-ring"))
-@@ -401,8 +410,7 @@ def start_camd(path=None, log=lambda line: None, stop=lambda: False, timeout=15.
+@@ -423,8 +432,7 @@ def start_camd(path=None, log=lambda line: None, stop=lambda: False, timeout=15.
          return False
      if not os.access(FT_CAMD, os.X_OK):
-         raise RuntimeError("ft-camd isn't built: hands/build.sh")
+         raise RuntimeError("ft-camd isn't built: " + fix_hint("hands/build.sh"))
 -    caps = subprocess.run(["getcap", FT_CAMD], capture_output=True, text=True) if shutil.which("getcap") else None
 -    if caps is not None and "cap_sys_ptrace" not in caps.stdout:
 +    if not camd_has_caps(FT_CAMD):
-         raise RuntimeError("ft-camd needs its capabilities: hands/run.sh caps (asks for sudo)")
+         raise RuntimeError("ft-camd needs its capabilities: " + fix_hint("hands/run.sh caps (asks for sudo)"))
      started = start_unit(CAMD_UNIT, "the camera broker", [FT_CAMD, "--status", "60"], log)
      end = time.monotonic() + timeout
 diff --git a/hands/rec/tests/test_camd_caps.py b/hands/rec/tests/test_camd_caps.py
