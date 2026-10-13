@@ -196,7 +196,7 @@ stdenvNoCC.mkDerivation {
 
   meta = {
     description = "Frametop: a multi-screen Plasma desktop in VR on the Steam Frame";
-    homepage = "https://github.com/DeeJanuz/frametop";
+    homepage = "https://github.com/Frametop/frametop";
     platforms = lib.platforms.linux;
   };
 }

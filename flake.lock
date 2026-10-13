@@ -5,13 +5,13 @@
       "locked": {
         "lastModified": 1791584260,
         "narHash": "sha256-ZHJRL4R3Ej6g6Ywvji7nof8ZM+fgpX+dyC+6x1y9kuQ=",
-        "owner": "DeeJanuz",
+        "owner": "Frametop",
         "repo": "frametop",
         "rev": "716018090647a181ad2316fade79c51b9d8fd7f0",
         "type": "github"
       },
       "original": {
-        "owner": "DeeJanuz",
+        "owner": "Frametop",
         "ref": "experimental",
         "repo": "frametop",
         "type": "github"

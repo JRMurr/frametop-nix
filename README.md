@@ -1,6 +1,6 @@
 # frametop-nix
 
-Nix packages and a Home Manager module for [Frametop](https://github.com/DeeJanuz/frametop) on the Steam Frame (SteamOS, aarch64-linux, standalone Home Manager, not NixOS).
+Nix packages and a Home Manager module for [Frametop](https://github.com/Frametop/frametop) on the Steam Frame (SteamOS, aarch64-linux, standalone Home Manager, not NixOS).
 
 Upstream builds Frametop in a Fedora `dev` container and sets it up with `install.sh`. This flake builds it with nixpkgs instead, and the Home Manager module sets up the same things `install.sh` does. This isn't part of upstream, it pins a commit of upstream's `experimental` branch (where merged PRs land first) and carries a few [patches](#patches) on top.
 
@@ -31,7 +31,7 @@ TODO: package remote desktop, the gaze probe (a development tool), and hand trac
       # Your nixpkgs needs wlroots_0_20.
       inputs.nixpkgs.follows = "nixpkgs";
       # To use a different upstream commit:
-      # inputs.frametop.url = "github:DeeJanuz/frametop/<rev>";  # (default: the experimental branch)
+      # inputs.frametop.url = "github:Frametop/frametop/<rev>";  # (default: the experimental branch)
     };
   };
 
@@ -189,7 +189,7 @@ CI (`.github/workflows/build.yml`) runs on PRs and pushes to main, natively on G
 To change them, in a frametop checkout (`git am ../frametop-nix/patches/*` on upstream `experimental` recreates the branch):
 
 ```sh
-git fetch https://github.com/DeeJanuz/frametop experimental
+git fetch https://github.com/Frametop/frametop experimental
 git switch nix-patches && git rebase FETCH_HEAD   # fix conflicts, edit, commit
 rm ../frametop-nix/patches/*
 git format-patch --no-signature --zero-commit -N FETCH_HEAD -o ../frametop-nix/patches

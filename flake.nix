@@ -5,7 +5,7 @@
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
     frametop = {
       # Upstream's experimental branch: merged PRs land there first.
-      url = "github:DeeJanuz/frametop/experimental";
+      url = "github:Frametop/frametop/experimental";
       flake = false;
     };
   };
