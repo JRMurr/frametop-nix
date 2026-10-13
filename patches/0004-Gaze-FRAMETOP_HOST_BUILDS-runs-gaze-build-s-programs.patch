@@ -1,0 +1,147 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: John Murray <5672686+JRMurr@users.noreply.github.com>
+Date: Mon, 5 Oct 2026 21:59:17 -0400
+Subject: [PATCH] Gaze: FRAMETOP_HOST_BUILDS runs gaze/build's programs on the
+ host
+
+ft-gazed and gazecheck.py ran ft-gaze and ft-gazepanel in the dev container.
+With FRAMETOP_HOST_BUILDS=1 they run directly (gazecal.build_argv).
+---
+ gaze/ft-gazed               | 15 +++++++--------
+ gaze/gazecal.py             | 21 +++++++++++++++++++++
+ gaze/gazecheck.py           |  5 ++---
+ gaze/test_gazecal_builds.py | 19 +++++++++++++++++++
+ 4 files changed, 49 insertions(+), 11 deletions(-)
+ create mode 100644 gaze/test_gazecal_builds.py
+
+diff --git a/gaze/ft-gazed b/gaze/ft-gazed
+index 20081a2..9b1cfb9 100755
+--- a/gaze/ft-gazed
++++ b/gaze/ft-gazed
+@@ -132,12 +132,11 @@ from pathlib import Path
+ 
+ sys.path.insert(0, str(Path(__file__).resolve().parent))
+ from gazecal import (DEFAULT_MODEL, EYE_FOUND, EYE_LOST, MODELS, STATE, Correction, EyeFallback,  # noqa: E402
+-                     EyeWeights, Fixation, LiveCorrection, SteamEyeLog, TrackedEye)
++                     EyeWeights, Fixation, LiveCorrection, SteamEyeLog, TrackedEye, build_argv)
+ from gazecheck import Checks  # noqa: E402
+ 
+ REPO = Path(__file__).resolve().parents[1]
+ HELPER = REPO / "gaze" / "build" / "ft-gaze"
+-IN_BOX = REPO / "scripts" / "in-box"  # runs a program in the container it was built in
+ ME = "\0ft_gazed"
+ POINTER = "\0ft_pointer_helper"
+ EYES_PROG = REPO / "gaze" / "tracker" / "ft-eyes"  # our own tracker
+@@ -513,9 +512,9 @@ class Service:
+         env["XDG_RUNTIME_DIR"] = f"/run/user/{os.getuid()}"  # podman needs the real one
+         # ft-gaze quits when its stdin closes: the one thing distrobox passes on.
+         sources = self.wanted_sources()
+-        self.proc = subprocess.Popen([str(IN_BOX), str(HELPER), "--watch-stdin", "--sources", sources], env=env,
+-                                     stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+-                                     start_new_session=True)
++        self.proc = subprocess.Popen(build_argv(HELPER, "--watch-stdin", "--sources", sources), env=env,
++                                     stdin=subprocess.PIPE, stdout=subprocess.PIPE,
++                                     stderr=subprocess.PIPE, start_new_session=True)
+         self.proc_sources = sources
+         os.set_blocking(self.proc.stdout.fileno(), False)
+         os.set_blocking(self.proc.stderr.fileno(), False)
+@@ -557,9 +556,9 @@ class Service:
+             return
+         env = dict(os.environ)
+         env["XDG_RUNTIME_DIR"] = f"/run/user/{os.getuid()}"
+-        self.eyes_proc = subprocess.Popen([str(IN_BOX), str(EYES_PYTHON), str(EYES_PROG), "-v", "--watch-stdin"],
+-                                          env=env, stdin=subprocess.PIPE, stdout=subprocess.DEVNULL,
+-                                          stderr=subprocess.PIPE, start_new_session=True)
++        self.eyes_proc = subprocess.Popen(build_argv(EYES_PYTHON, EYES_PROG, "-v", "--watch-stdin"), env=env,
++                                          stdin=subprocess.PIPE, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE,
++                                          start_new_session=True)
+         os.set_blocking(self.eyes_proc.stderr.fileno(), False)
+         self.sel.register(self.eyes_proc.stderr, selectors.EVENT_READ, "eyes")
+         log("ft-eyes started" + ("" if EYES_CAMS.exists() else
+diff --git a/gaze/gazecal.py b/gaze/gazecal.py
+index 14b37b3..40c63a9 100644
+--- a/gaze/gazecal.py
++++ b/gaze/gazecal.py
+@@ -7,6 +7,7 @@ the tracker has lost the other), EyeWeights (how much each eye counts), and Stea
+ reports them.
+ """
+ 
++import enum
+ import json
+ import math
+ import os
+@@ -16,6 +17,26 @@ from pathlib import Path
+ 
+ STATE = Path.home() / ".local" / "state" / "frametop" / "gaze"
+ 
++
++# --- Where gaze/build's programs run ------------------------------------------------
++
++class Builds(enum.Enum):
++    CONTAINER = "0"  # built in Frametop's container (gaze/build.sh), so run there (scripts/in-box)
++    HOST = "1"       # built for the host (frametop-nix)
++
++
++# FRAMETOP_HOST_BUILDS=1: gaze/build's programs (ft-gaze, ft-gazepanel) and ft-eyes' Python run on
++# the host.
++BUILDS = Builds(os.environ.get("FRAMETOP_HOST_BUILDS", "0"))
++
++
++def build_argv(prog, *args, where=BUILDS):
++    """The command that runs one of gaze/build's programs where it was built."""
++    argv = [str(prog), *args]
++    if where == Builds.HOST:
++        return argv
++    return [str(Path(__file__).resolve().parents[1] / "scripts" / "in-box"), *argv]
++
+ # --- Small math ---------------------------------------------------------------------
+ 
+ def px_from_deg(j, dy, dp):
+diff --git a/gaze/gazecheck.py b/gaze/gazecheck.py
+index 6e37009..0510f34 100644
+--- a/gaze/gazecheck.py
++++ b/gaze/gazecheck.py
+@@ -86,7 +86,7 @@ import time
+ from pathlib import Path
+ 
+ from fitcheck import MIN_REGION, FitCheck, wrap
+-from gazecal import DEFAULT_MODEL, EYE_LOST, STATE, steady_samples
++from gazecal import DEFAULT_MODEL, EYE_LOST, STATE, build_argv, steady_samples
+ 
+ REPO = Path(__file__).resolve().parents[1]
+ PANEL_PROG = REPO / "gaze" / "build" / "ft-gazepanel"
+@@ -283,8 +283,7 @@ class Checks:
+             return
+         env = dict(os.environ)
+         env["XDG_RUNTIME_DIR"] = f"/run/user/{os.getuid()}"
+-        self.panel_proc = subprocess.Popen([str(REPO / "scripts" / "in-box"), str(PANEL_PROG), "--watch-stdin"],
+-                                           env=env, stdin=subprocess.PIPE, stdout=subprocess.DEVNULL,
++        self.panel_proc = subprocess.Popen(build_argv(PANEL_PROG, "--watch-stdin"), env=env, stdin=subprocess.PIPE, stdout=subprocess.DEVNULL,
+                                            stderr=subprocess.PIPE, start_new_session=True)
+         os.set_blocking(self.panel_proc.stderr.fileno(), False)
+         self.sel.register(self.panel_proc.stderr, selectors.EVENT_READ, "panel")
+diff --git a/gaze/test_gazecal_builds.py b/gaze/test_gazecal_builds.py
+new file mode 100644
+index 0000000..70296f4
+--- /dev/null
++++ b/gaze/test_gazecal_builds.py
+@@ -0,0 +1,19 @@
++"""Tests for gazecal.build_argv. Run: python3 -m pytest gaze/ (needs pytest and hypothesis)."""
++from hypothesis import given, strategies as st
++
++import gazecal
++
++PROG = "/home/steamos/frametop/gaze/build/ft-gaze"
++ARGS = st.lists(st.text(min_size=1), max_size=4)
++
++
++@given(ARGS)
++def test_host_runs_prog(args):
++    assert gazecal.build_argv(PROG, *args, where=gazecal.Builds.HOST) == [PROG, *args]
++
++
++@given(ARGS)
++def test_container_wraps_prog(args):
++    argv = gazecal.build_argv(PROG, *args, where=gazecal.Builds.CONTAINER)
++    assert argv[0].endswith("/scripts/in-box")
++    assert argv[1:] == [PROG, *args]

@@ -12,14 +12,14 @@ systemd-run at the real session's runtime dir when not in distrobox.
  float/ft-float-apps                     |  2 +-
  float/ft-floatd                         |  2 +-
  layout/ft-layout                        |  2 +-
- session/frametop-session.sh             | 21 +++++++++++++++------
- 5 files changed, 24 insertions(+), 12 deletions(-)
+ session/frametop-session.sh             | 17 +++++++++++++----
+ 5 files changed, 22 insertions(+), 10 deletions(-)
 
 diff --git a/display-settings/ft_display_settings.py b/display-settings/ft_display_settings.py
-index e47f051..c2a3bc0 100644
+index dc8fdb6..3704d39 100644
 --- a/display-settings/ft_display_settings.py
 +++ b/display-settings/ft_display_settings.py
-@@ -85,10 +85,13 @@ def host_command(*cmd):
+@@ -88,10 +88,13 @@ def host_command(*cmd):
  
      distrobox-host-exec reaches the host through the user's real session bus; inside the
      desktop our DBUS_SESSION_BUS_ADDRESS is the nested session's private one, where it
@@ -65,33 +65,29 @@ index 4706963..f535539 100755
 -exec python3 "$(dirname "$(readlink -f "$0")")/ft_layout.py" "$@"
 +exec "${FRAMETOP_PYTHON:-python3}" "$(dirname "$(readlink -f "$0")")/ft_layout.py" "$@"
 diff --git a/session/frametop-session.sh b/session/frametop-session.sh
-index 404fa36..9b42d6d 100755
+index c3b32b3..e05a351 100755
 --- a/session/frametop-session.sh
 +++ b/session/frametop-session.sh
-@@ -99,12 +99,19 @@ if [ "${1:-}" != --inner ]; then
-   fi
- 
-   # ft-screens runs in the dev container (it's built against Fedora's wlroots); KWin and
--  # Plasma stay on the host and connect to its socket.
-+  # Plasma stay on the host and connect to its socket. FRAMETOP_SCREENS_BIN names a build
-+  # that runs on the host instead (frametop-nix).
+@@ -102,10 +102,17 @@ if [ "${1:-}" != --inner ]; then
+   # ft-screens runs in Frametop's container (it's built against Fedora's wlroots); KWin and
+   # Plasma stay on the host and connect to its socket. in-box starts the container in a scope
+   # of its own, not this desktop's, or stopping the desktop would stop the container.
++  # FRAMETOP_SCREENS_BIN names a build that runs on the host instead (frametop-nix).
    socket=ft-screens-0
    read -ra screen_args <<< "$("$here/../layout/ft-layout" screen-args)"
    export FT_SCREEN_COUNT=$(( ${#screen_args[@]} / 2 )) FT_FLOAT_SLOTS=$float_slots
--  "$here/../scripts/container-up.sh"  # not owned by this desktop, or stopping it would stop the container
--  "$HOME/.local/bin/distrobox" enter dev -- "$here/../screens/build/ft-screens" --socket "$socket" \
+-  "$here/../scripts/in-box" "$here/../screens/build/ft-screens" --socket "$socket" \
 +  screens_bin=${FRAMETOP_SCREENS_BIN:-}
 +  if [ -n "$screens_bin" ]; then
 +    screens_cmd=("$screens_bin")
 +  else
-+    "$here/../scripts/container-up.sh"  # not owned by this desktop, or stopping it would stop the container
-+    screens_cmd=("$HOME/.local/bin/distrobox" enter dev -- "$here/../screens/build/ft-screens")
++    screens_cmd=("$here/../scripts/in-box" "$here/../screens/build/ft-screens")
 +  fi
 +  "${screens_cmd[@]}" --socket "$socket" \
      "${screen_args[@]}" --spares "$float_slots" > /tmp/frametop-screens.log 2>&1 < /dev/null &
    stop_screens() { pkill -x ft-screens 2>/dev/null || true; }
    trap stop_screens EXIT
-@@ -211,7 +218,7 @@ fi
+@@ -237,7 +244,7 @@ fi
  # apps' desktop files with that action, first in XDG_DATA_DIRS, so only this desktop sees
  # them. Written now, before Plasma reads them; ft-floatd keeps them up to date.
  if [ "$float_slots" -gt 0 ]; then
@@ -100,7 +96,7 @@ index 404fa36..9b42d6d 100755
    export XDG_DATA_DIRS=$HOME/.local/share/frametop/apps:${XDG_DATA_DIRS:-/usr/local/share:/usr/share}
  fi
  
-@@ -226,6 +233,7 @@ if [ "$float_slots" -gt 0 ]; then
+@@ -252,6 +259,7 @@ if [ "$float_slots" -gt 0 ]; then
    rm -rf "$deco_dir" "$deco_dir"_try*  # (decoration/apply.sh's copies)
    mkdir -p "$(dirname "$deco_dir")"
    cp -r "$here/../decoration" "$deco_dir"
@@ -108,7 +104,7 @@ index 404fa36..9b42d6d 100755
    rm -f "$deco_dir/apply.sh"
    kwriteconfig6 --file "$kwinrc" --group org.kde.kdecoration2 --key library org.kde.kwin.aurorae
    kwriteconfig6 --file "$kwinrc" --group org.kde.kdecoration2 --key theme "$deco"
-@@ -275,6 +283,7 @@ kwriteconfig6 --file "$XDG_CONFIG_HOME/ksmserverrc" --group General --key loginM
+@@ -310,6 +318,7 @@ kwriteconfig6 --file "$XDG_CONFIG_HOME/ksmserverrc" --group General --key loginM
  # Plasma keeps a panel on a screen number, and never moves one whose screen this desktop
  # doesn't have, like a spare output or a screen a smaller layout dropped. Put such a panel
  # back on the first (primary) screen before Plasma reads the file (session/fix-panels.py).

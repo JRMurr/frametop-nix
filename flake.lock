@@ -3,15 +3,16 @@
     "frametop": {
       "flake": false,
       "locked": {
-        "lastModified": 1791165012,
-        "narHash": "sha256-XHb97TadTwivg9j8XKbhSrCDpla3WrvHefLDSMSwvZc=",
-        "owner": "DeeJanuz",
+        "lastModified": 1791584260,
+        "narHash": "sha256-ZHJRL4R3Ej6g6Ywvji7nof8ZM+fgpX+dyC+6x1y9kuQ=",
+        "owner": "Frametop",
         "repo": "frametop",
-        "rev": "ca9492be000a24f8e539607a02ee5d12f41801a6",
+        "rev": "716018090647a181ad2316fade79c51b9d8fd7f0",
         "type": "github"
       },
       "original": {
-        "owner": "DeeJanuz",
+        "owner": "Frametop",
+        "ref": "experimental",
         "repo": "frametop",
         "type": "github"
       }

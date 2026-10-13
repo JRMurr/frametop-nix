@@ -140,7 +140,7 @@ index 0000000..0ce479b
 +if __name__ == "__main__":
 +    main()
 diff --git a/session/frametop-session.sh b/session/frametop-session.sh
-index 9b42d6d..1700010 100755
+index e05a351..93b2207 100755
 --- a/session/frametop-session.sh
 +++ b/session/frametop-session.sh
 @@ -34,7 +34,7 @@ for var in $(compgen -e); do
@@ -160,7 +160,7 @@ index 9b42d6d..1700010 100755
  # Floating windows (screens backend): KWin gets this many spare outputs after the screens,
  # and ft-floatd floats a window on each (docs/floating-windows.md). Changing it takes a
  # desktop restart.
-@@ -184,6 +185,13 @@ export XDG_CONFIG_HOME=$HOME/.config/frametop
+@@ -185,6 +186,13 @@ export XDG_CONFIG_HOME=$HOME/.config/frametop
  export XDG_STATE_HOME=$HOME/.local/state/frametop
  mkdir -p "$XDG_CONFIG_HOME" "$XDG_STATE_HOME"
  
@@ -171,11 +171,11 @@ index 9b42d6d..1700010 100755
 +  "${FRAMETOP_PYTHON:-python3}" "$here/config_links.py" "$HOME/.local/state" "$XDG_STATE_HOME" state || true
 +fi
 +
- # Remote desktop over VNC: session/remote-desktop.sh captures the desktop with
- # krdp on 127.0.0.1, and session/vnc-bridge.sh re-serves its primary screen over VNC. krdpserver runs from the container, so KWin can't
- # match it to an installed app. KWin's permission check for screencast and fake
+ # The cursor: the Steam client's XCURSOR_THEME=steam comes along in the environment, and
+ # KWin and the apps take it over this desktop's own setting. SteamOS had no theme of that
+ # name, so they fell back to Breeze; SteamOS 0.4 has one (holo-cursors: Steam's arrow, the
 diff --git a/session/frametop.conf.example b/session/frametop.conf.example
-index 1886482..711e1b6 100644
+index 379d713..8e670ad 100644
 --- a/session/frametop.conf.example
 +++ b/session/frametop.conf.example
 @@ -9,6 +9,7 @@ PHYS_WIDTH=1.6     # gamescope: panel width in metres, docked

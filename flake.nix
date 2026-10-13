@@ -4,7 +4,8 @@
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
     frametop = {
-      url = "github:DeeJanuz/frametop";
+      # Upstream's experimental branch: merged PRs land there first.
+      url = "github:Frametop/frametop/experimental";
       flake = false;
     };
   };
@@ -30,13 +31,19 @@
         let
           src = pkgs.callPackage ./packages/source.nix { inherit frametop; };
           vrclientDeps = import ./packages/vrclient-deps.nix { inherit (pkgs) libGL libuuid; };
-          callPackage = lib.callPackageWith (pkgs // packages // { inherit src vrclientDeps; });
+          stb = pkgs.callPackage ./packages/stb.nix { };
+          callPackage = lib.callPackageWith (pkgs // packages // { inherit src vrclientDeps stb; });
           packages = {
             frametop-src = src;
             ft-screens = callPackage ./packages/ft-screens.nix { };
             ft-pointer = callPackage ./packages/ft-pointer.nix { };
             ft-powerd = callPackage ./packages/ft-powerd.nix { };
             ft-pointer-driver = callPackage ./packages/ft-pointer-driver.nix { };
+            ft-gaze = callPackage ./packages/ft-gaze.nix { };
+            ft-eyegrab = callPackage ./packages/ft-eyegrab.nix { };
+            ft-hands = callPackage ./packages/ft-hands.nix { };
+            ft-camd = callPackage ./packages/ft-camd.nix { };
+            ft-handpanel = callPackage ./packages/ft-handpanel.nix { };
             # Everything: scripts, Python tools, settings apps, and the programs above.
             frametop-apps = callPackage ./packages/frametop.nix { };
             # The same without the settings apps (no Qt).
@@ -67,9 +74,11 @@
           packages = self.packages.${pkgs.stdenv.hostPlatform.system};
         in
         {
-          inherit (packages) ft-pointer-driver frametop-scripts;
-          config-links =
-            pkgs.runCommand "frametop-config-links-test"
+          inherit (packages) ft-pointer-driver ft-gaze frametop-scripts;
+          # ~/.config: SHARE_CONFIG's links, conf-migrate.sh never emptying frametop.conf, and the
+          # Native Desktop entry.
+          config =
+            pkgs.runCommand "frametop-config-test"
               {
                 nativeBuildInputs = [
                   (pkgs.python3.withPackages (ps: [
@@ -79,8 +88,41 @@
                 ];
               }
               ''
-                cp -r ${packages.frametop-src}/session session && chmod -R u+w session && cd session
-                python3 -m pytest -q -p no:cacheprovider test_config_links.py
+                cp -r ${packages.frametop-src}/{session,scripts} . && chmod -R u+w session scripts
+                (cd session && python3 -m pytest -q -p no:cacheprovider test_config_links.py)
+                python3 scripts/test_conf_migrate.py
+                python3 ${./checks/test_native_desktop.py} ${packages.frametop-scripts}
+                touch $out
+              '';
+          # The packaged tree runs gaze's and hand tracking's programs on the host
+          # (FRAMETOP_HOST_BUILDS), and the gaze service idles (upstream's offline test, with
+          # a fake ft-gaze).
+          host-builds =
+            pkgs.runCommand "frametop-host-builds-test"
+              {
+                nativeBuildInputs = [
+                  (pkgs.python3.withPackages (ps: [
+                    ps.pytest
+                    ps.hypothesis
+                  ]))
+                ];
+              }
+              ''
+                cp -r ${packages.frametop-scripts}/share/frametop/{gaze,hands} . && chmod -R u+w gaze hands
+                export HOME=$TMPDIR
+
+                (cd gaze
+                  python3 -c 'import gazecal; assert gazecal.BUILDS == gazecal.Builds.HOST, gazecal.BUILDS'
+                  python3 -m pytest -q -p no:cacheprovider test_gazecal_builds.py
+                  python3 test/idle-test.py
+                  python3 test/first-calibration-test.py)
+
+                grep -qF 'host_builds=''${FRAMETOP_HOST_BUILDS:-1}' hands/ft-cutouts
+                python3 hands/tests/test_cutouts.py
+                (cd hands/rec
+                  python3 -c 'import session; assert session.builds() == session.Builds.HOST, session.builds()'
+                  python3 tests/test_tracker_argv.py
+                  python3 tests/test_camd_caps.py)
                 touch $out
               '';
         }
