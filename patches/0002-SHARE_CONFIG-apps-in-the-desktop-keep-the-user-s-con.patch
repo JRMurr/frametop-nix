@@ -140,27 +140,27 @@ index 0000000..0ce479b
 +if __name__ == "__main__":
 +    main()
 diff --git a/session/frametop-session.sh b/session/frametop-session.sh
-index e05a351..93b2207 100755
+index b91907e..7559260 100755
 --- a/session/frametop-session.sh
 +++ b/session/frametop-session.sh
 @@ -34,7 +34,7 @@ for var in $(compgen -e); do
  done
  
  conf=$HOME/.config/frametop.conf
--BACKEND=screens SCREENS=2 WIDTH=1920 HEIGHT=1080 PHYS_WIDTH=1.6 REMOTE=0 FLOAT_SLOTS=8 FLOAT_MARGIN=300
-+BACKEND=screens SCREENS=2 WIDTH=1920 HEIGHT=1080 PHYS_WIDTH=1.6 REMOTE=0 FLOAT_SLOTS=8 FLOAT_MARGIN=300 SHARE_CONFIG=0
+-BACKEND=screens SCREENS=2 WIDTH=1920 HEIGHT=1080 PHYS_WIDTH=1.6 REMOTE=0 FLOAT_SLOTS=16 FLOAT_MARGIN=300
++BACKEND=screens SCREENS=2 WIDTH=1920 HEIGHT=1080 PHYS_WIDTH=1.6 REMOTE=0 FLOAT_SLOTS=16 FLOAT_MARGIN=300 SHARE_CONFIG=0
+ NOTIFY_FORWARD=auto
  # shellcheck disable=SC1090
  [ -f "$conf" ] && . "$conf"
- backend=${FT_BACKEND:-$BACKEND}
-@@ -43,6 +43,7 @@ width=${FT_WIDTH:-$WIDTH}
- height=${FT_HEIGHT:-$HEIGHT}
+@@ -45,6 +45,7 @@ height=${FT_HEIGHT:-$HEIGHT}
  phys_width=${FT_PHYS_WIDTH:-$PHYS_WIDTH}
  remote=${FT_REMOTE:-$REMOTE}
+ notify_forward=${FT_NOTIFY_FORWARD:-$NOTIFY_FORWARD}
 +share_config=${FT_SHARE_CONFIG:-$SHARE_CONFIG}
  # Floating windows (screens backend): KWin gets this many spare outputs after the screens,
  # and ft-floatd floats a window on each (docs/floating-windows.md). Changing it takes a
  # desktop restart.
-@@ -185,6 +186,13 @@ export XDG_CONFIG_HOME=$HOME/.config/frametop
+@@ -191,6 +192,13 @@ export XDG_CONFIG_HOME=$HOME/.config/frametop
  export XDG_STATE_HOME=$HOME/.local/state/frametop
  mkdir -p "$XDG_CONFIG_HOME" "$XDG_STATE_HOME"
  
@@ -175,13 +175,13 @@ index e05a351..93b2207 100755
  # KWin and the apps take it over this desktop's own setting. SteamOS had no theme of that
  # name, so they fell back to Breeze; SteamOS 0.4 has one (holo-cursors: Steam's arrow, the
 diff --git a/session/frametop.conf.example b/session/frametop.conf.example
-index 379d713..8e670ad 100644
+index 1879c05..a8a1c4d 100644
 --- a/session/frametop.conf.example
 +++ b/session/frametop.conf.example
-@@ -9,6 +9,7 @@ PHYS_WIDTH=1.6     # gamescope: panel width in metres, docked
- REMOTE=0           # 1 = serve the desktop's primary screen over VNC on the tailnet (port 5900; Frametop Remote Access, see README)
- FLOAT_SLOTS=8      # screens backend: how many windows can float in VR at once (spare outputs; 0 turns it off; restart the desktop after a change)
+@@ -10,6 +10,7 @@ REMOTE=0           # 1 = serve the desktop's primary screen over VNC on the tail
+ FLOAT_SLOTS=16     # screens backend: how many windows can float in VR at once (spare outputs; 0 turns it off; restart the desktop after a change)
  FLOAT_MARGIN=300   # floating windows: pixels around each window on its output, so menus have room past its edges
+ NOTIFY_FORWARD=auto # the desktop's notifications go to the Steam session's notification server (e.g. VR toasts), Plasma's popups off: auto = unless that's SteamOS's steam_notif_daemon | on | off (restart the desktop after a change)
 +SHARE_CONFIG=0     # 1 = apps in the desktop use your normal ~/.config and ~/.local/state (all but Plasma's own files); restart the desktop after a change
  POINTER=0          # 1 = the mouse drives the universal 3D pointer (ft_pointer driver) instead of a plain mouse
  POINTER_SENSITIVITY=0.03   # degrees per mouse count

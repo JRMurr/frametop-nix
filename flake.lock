@@ -3,11 +3,11 @@
     "frametop": {
       "flake": false,
       "locked": {
-        "lastModified": 1791584260,
-        "narHash": "sha256-ZHJRL4R3Ej6g6Ywvji7nof8ZM+fgpX+dyC+6x1y9kuQ=",
+        "lastModified": 1792102424,
+        "narHash": "sha256-1zWpf2VC2amYDUp/yHvIj4OHWtFJNN6IsyHYwh0yONw=",
         "owner": "Frametop",
         "repo": "frametop",
-        "rev": "716018090647a181ad2316fade79c51b9d8fd7f0",
+        "rev": "d631654b1545ef5b0423ac4921ea2a189400be53",
         "type": "github"
       },
       "original": {

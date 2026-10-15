@@ -16,6 +16,7 @@
   python3,
   glib,
   gobject-introspection,
+  gdk-pixbuf,
   qt6,
   kdePackages,
   ft-screens,
@@ -24,6 +25,7 @@
   ft-gaze,
   ft-hands,
   ft-handpanel,
+  hand-models,
   zstd,
   src,
   withSettingsApps ? true,
@@ -35,8 +37,8 @@
 }:
 
 let
-  # ft-floatd and Launch as Standalone use dbus-python and PyGObject (GLib, Gio). The
-  # typelib path is set for this interpreter only, not exported to the desktop.
+  # ft-floatd, Launch as Standalone, and spotwatch use dbus-python and PyGObject (GLib, Gio,
+  # GdkPixbuf). The typelib path is set for this interpreter only, not exported to the desktop.
   scriptPython = python3.withPackages (ps: [
     ps.dbus-python
     ps.pygobject3
@@ -44,6 +46,7 @@ let
   typelibPath = lib.makeSearchPath "lib/girepository-1.0" [
     glib.out
     gobject-introspection
+    gdk-pixbuf
   ];
   appPython = python3.withPackages (ps: [ ps.pyside6 ]);
   # Our own eye tracker's ft-eyes (gaze/tracker/requirements.txt).
@@ -87,13 +90,14 @@ stdenvNoCC.mkDerivation {
     tree=$out/${share}
     mkdir -p $tree
     cp -r README.md LICENSE desktops.sh decoration display-settings docs float gaze hands input \
-      input-settings layout remote scripts session setup steam $tree/
+      input-settings layout recorder remote scripts session setup spotwatch steam $tree/
     mkdir -p $tree/pointer/helper $tree/screens/build $tree/power/build
     cp -r pointer/helper/actions $tree/pointer/helper/
 
     # The programs, where the scripts and their own lookups expect them. ft-screens is a
     # copy: it finds ft-layout from its own real path (/proc/self/exe).
     install -m755 ${ft-screens}/bin/ft-screens $tree/screens/build/ft-screens
+    ln -s ${ft-screens}/bin/ft-handview ${ft-screens}/bin/ft-spotpanel $tree/screens/build/
     mkdir -p $tree/pointer/helper/build
     ln -s ${ft-pointer}/lib/ft-pointer/bin/ft-pointer $tree/pointer/helper/build/ft-pointer
     ln -s ${ft-powerd}/bin/ft-powerd $tree/power/build/ft-powerd
@@ -104,6 +108,7 @@ stdenvNoCC.mkDerivation {
     # ft-hands finds its models from argv[0] (hands/build/../models), so a link does.
     mkdir -p $tree/hands/build $tree/hands/rec/build
     ln -s ${ft-hands}/bin/ft-hands $tree/hands/build/ft-hands
+    ln -s ${hand-models} $tree/hands/models/student
     ln -s ${camdPath} $tree/hands/build/ft-camd
     ln -s ${ft-handpanel}/bin/ft-handpanel $tree/hands/rec/build/ft-handpanel
 
@@ -116,12 +121,14 @@ stdenvNoCC.mkDerivation {
                      "screens_bin=\''${FRAMETOP_SCREENS_BIN:-$tree/screens/build/ft-screens}" \
       --replace-fail '"''${FRAMETOP_PYTHON:-python3}"' "\"\''${FRAMETOP_PYTHON:-$out/libexec/frametop/ft-python}\"" \
       --replace-fail '"''${FRAMETOP_STARTPLASMA:-startplasma-wayland}"' "\"\''${FRAMETOP_STARTPLASMA:-${startPlasma}}\""
+    substituteInPlace $tree/spotwatch/ft-spotwatch \
+      --replace-fail 'exec python3 ' "exec $out/libexec/frametop/ft-python "
     for f in layout/ft-layout float/ft-floatd float/ft-float-apps; do
       substituteInPlace $tree/$f \
         --replace-fail '"''${FRAMETOP_PYTHON:-python3}"' "\"\''${FRAMETOP_PYTHON:-$out/libexec/frametop/ft-python}\""
     done
-    # gaze/build's and hands/build's programs above are built for the host.
-    for f in gaze/gazecal.py hands/rec/session.py; do
+    # gaze/build's, hands/build's and screens/build's programs above are built for the host.
+    for f in gaze/gazecal.py hands/rec/session.py spotwatch/ft_spotwatch.py; do
       substituteInPlace $tree/$f \
         --replace-fail '"FRAMETOP_HOST_BUILDS", "0"' '"FRAMETOP_HOST_BUILDS", "1"'
     done

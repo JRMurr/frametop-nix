@@ -44,6 +44,7 @@
             ft-hands = callPackage ./packages/ft-hands.nix { };
             ft-camd = callPackage ./packages/ft-camd.nix { };
             ft-handpanel = callPackage ./packages/ft-handpanel.nix { };
+            hand-models = callPackage ./packages/hand-models.nix { inherit frametop; };
             # Everything: scripts, Python tools, settings apps, and the programs above.
             frametop-apps = callPackage ./packages/frametop.nix { };
             # The same without the settings apps (no Qt).
@@ -108,7 +109,7 @@
                 ];
               }
               ''
-                cp -r ${packages.frametop-scripts}/share/frametop/{gaze,hands} . && chmod -R u+w gaze hands
+                cp -r ${packages.frametop-scripts}/share/frametop/{gaze,hands,recorder} . && chmod -R u+w gaze hands recorder
                 export HOME=$TMPDIR
 
                 (cd gaze

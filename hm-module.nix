@@ -131,9 +131,9 @@ in
         type = types.bool;
         default = false;
         description = ''
-          Hand tracking (experimental): the frametop-camd and frametop-hands services, which
-          don't start with SteamVR (ft-handsctl on, or ft-cutouts on for the cutouts without
-          gestures), and frametop-camwatch. ft-camd needs file capabilities, so a copy with
+          Hand tracking (experimental): the frametop-camd, frametop-hands, and
+          frametop-handview services, which don't start with SteamVR (HANDS_MODE, ft-handsctl
+          on, or ft-cutouts on for the cutouts without gestures), and frametop-camwatch. ft-camd needs file capabilities, so a copy with
           them is installed with programs.steamos-etc.
         '';
       };
@@ -352,8 +352,32 @@ in
           Service = {
             ExecStartPre = "-${pkgs.procps}/bin/pkill -x ft-hands";
             ExecStart = "${tree}/hands/build/ft-hands --status 60";
+            ExecStopPost = "-${pkgs.procps}/bin/pkill -x ft-hands";
             Restart = "always";
             RestartSec = 5;
+            TimeoutStopSec = 5;
+          };
+        };
+
+        # screens/frametop-handview.service: the hands drawn where Room View is off. Like the two
+        # above, hands/run.sh install leaves it installed; HANDS_MODE (hands/handsmode.py) starts it.
+        systemd.user.services.frametop-handview = mkIf cfg.hands.enable {
+          Unit = {
+            Description = "Frametop rendered hands: your tracked hands drawn over games, the dashboard and the panels with Room View off";
+            Documentation = [ "file://${tree}/screens/README.md" ];
+            After = [
+              "steamvr.service"
+              "frametop-hands.service"
+            ];
+            PartOf = [ "steamvr.service" ];
+            Requisite = [ "steamvr.service" ];
+          };
+          Service = {
+            ExecStartPre = "-${pkgs.procps}/bin/pkill -x ft-handview";
+            ExecStart = "${tree}/screens/build/ft-handview --status 60";
+            ExecStopPost = "-${pkgs.procps}/bin/pkill -x ft-handview";
+            Restart = "on-failure";
+            RestartSec = 3;
             TimeoutStopSec = 5;
           };
         };

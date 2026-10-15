@@ -9,10 +9,10 @@ Subject: [PATCH] update-check: check vrclient.so's libraries for Nix-built
  1 file changed, 57 insertions(+), 1 deletion(-)
 
 diff --git a/scripts/update-check.py b/scripts/update-check.py
-index d7ec5fd..3aa8cd3 100755
+index 9f58e17..1519a4b 100755
 --- a/scripts/update-check.py
 +++ b/scripts/update-check.py
-@@ -271,6 +271,8 @@ def check_host():
+@@ -311,6 +311,8 @@ def check_host():
              report("warn", "Native Desktop", "the launcher's copy no longer matches SteamOS's Desktop entry; "
                     "./desktops.sh install refreshes it")
  
@@ -21,7 +21,7 @@ index d7ec5fd..3aa8cd3 100755
      if systemctl("is-enabled", "frametop-power") == "enabled":
          if os.access(BACKLIGHT, os.W_OK):
              report("ok", "backlight", "ft-powerd can turn the displays off")
-@@ -285,6 +287,59 @@ def launcher_keys(path):
+@@ -325,6 +327,59 @@ def launcher_keys(path):
      return {k: v for k, v in pairs if k != "X-Steam-Special" and k.split("[")[0] != "Name"}
  
  
@@ -81,7 +81,7 @@ index d7ec5fd..3aa8cd3 100755
  def launcher_session():
      try:
          with open(LAUNCHER) as f:
-@@ -302,7 +357,8 @@ def installed_binaries():
+@@ -342,7 +397,8 @@ def installed_binaries():
      for unit in UNITS:
          argv = re.search(r"argv\[\]=([^;]*)", systemctl("show", "-p", "ExecStart", "--value", unit + ".service"))
          for arg in (argv.group(1).split() if argv else []):

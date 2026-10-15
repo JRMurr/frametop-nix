@@ -14,10 +14,10 @@ replaced ~/.config/frametop.conf, and the script still reported the migration.
  create mode 100644 scripts/test_conf_migrate.py
 
 diff --git a/scripts/conf-migrate.sh b/scripts/conf-migrate.sh
-index b1d4acc..ecb1c64 100755
+index 2cb3f6e..19399ee 100755
 --- a/scripts/conf-migrate.sh
 +++ b/scripts/conf-migrate.sh
-@@ -11,6 +11,7 @@ root=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
+@@ -18,6 +18,7 @@ root=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
  . "$root/scripts/_env.sh"
  
  on_frame_script <<'EOF'
