@@ -8,11 +8,11 @@ There's a write up of a full frame setup using it in [this blog post](https://jo
 
 ## What works
 
-You get the multi-screen desktop, the input relay, the 3D mouse, the power service, and both settings apps. Opt in to gaze mode (with SteamVR's eye tracker or Frametop's own), hand tracking, the hand recorder, and the Bluetooth fixes. The ones that need root go through [steamos-etc](#parts-that-need-root).
+You get the multi-screen desktop (with spotwatch, its Meta+Space search), Frametop's keyboard (Full Keyboard), the input relay, the 3D mouse, the power service, both settings apps, and the Tour. Opt in to gaze mode (with SteamVR's eye tracker or Frametop's own), hand tracking (with the drawn hands, `ft-handview`, and upstream's pinned fine-tuned models), the hand recorder, and the Bluetooth fixes. The ones that need root go through [steamos-etc](#parts-that-need-root).
 
 Remote desktop isn't packaged yet, it still enters upstream's `dev` container. Keep `REMOTE=0` in your config.
 
-TODO: package remote desktop, the gaze probe (a development tool), and hand tracking's recording tools (`make tools`).
+TODO: package remote desktop, voice dictation (`voice/`), the eye recorder (`gaze/rec`), the eye net for Frametop's own eye tracker (needs Python ncnn, which nixpkgs lacks), the gaze bench (`gaze/bench`), the 3D mouse's dashboard patch (`pointer/dashpatch`), the gaze probe (a development tool), and hand tracking's recording tools (`make tools`).
 
 ## Usage
 
@@ -48,6 +48,7 @@ TODO: package remote desktop, the gaze probe (a development tool), and hand trac
           targets.genericLinux.enable = true;  # also turns on targets.genericLinux.gpu
           programs.frametop.enable = true;
           # programs.frametop.pointer.enable = false;  # no 3D mouse
+          # programs.frametop.keyboard.enable = false; # no Full Keyboard (Frametop's older panel)
           # programs.frametop.power.enable = false;    # no display power service
           # programs.frametop.gaze.enable = true;      # gaze mode (experimental)
           # The rest need steamos-etc (see "Parts that need root"):
@@ -114,11 +115,11 @@ setup/bluetooth/install.sh uninstall  # asks for sudo
 ## What the module sets up
 
 - **`frametop-input-relay`**: the same unit as upstream's `input/frametop-input-relay.service`, run with the package's Python. If SteamVR is already running when it's first installed, the relay waits for SteamVR's next start, since starting under a running SteamVR would take the mouse away from it.
-- **`frametop-pointer`** and **`frametop-power`**: start and stop with SteamVR, same as with `install.sh`.
+- **`frametop-pointer`**, **`frametop-power`**, and **`frametop-keyboard`**: start and stop with SteamVR, same as with `install.sh`.
 - **`frametop-gaze`** (`gaze.enable`): starts and stops with SteamVR. Turn gaze mode on and calibrate on the Gaze page of Frametop Input Settings. With `gaze.ownTracker.enable`, `GAZE_TRACKER=auto` picks Frametop's own tracker.
 - **`frametop-camd`**, **`frametop-hands`**, and **`frametop-camwatch`** (`hands.enable`): as `hands/run.sh install` leaves them. Hand tracking doesn't start with SteamVR: `ft-handsctl on|off`, or `ft-cutouts on|off` for the cutouts without gestures (both on your `PATH`).
 - **The ft_pointer driver**: linked at `~/.local/share/frametop/ft_pointer` (the same path `pointer/driver/install.sh` uses) and registered once with the host's `vrpathreg`. The path never changes between generations, so SteamVR's config isn't touched again.
-- **Menu entries**: the launcher's Desktop entry (the `deckard-nested-desktop.desktop` override `desktops.sh install` writes), Native Desktop (its copy of SteamOS's entry for the stock desktop, made at activation from `host.stockLauncher`), Frametop Display Settings, Frametop Input Settings, Reset Screen Layout, Hide/Show Screens, and their shortcuts. Activation rewrites each profile's entry (`ft-layout launchers`) since those point into the store.
+- **Menu entries**: the launcher's Desktop entry (the `deckard-nested-desktop.desktop` override `desktops.sh install` writes), Native Desktop (its copy of SteamOS's entry for the stock desktop, made at activation from `host.stockLauncher`), Frametop Display Settings, Frametop Input Settings, Frametop Tour, Reset Screen Layout, Hide/Show Screens, and their shortcuts. Activation rewrites each profile's entry (`ft-layout launchers`) since those point into the store.
 - **`~/.config/frametop.conf`**: not managed, since the settings apps write to it. If it's missing it gets created from the example. Activation sets `POINTER` from `pointer.enable` and `SHARE_CONFIG` from `shareConfig` (both on by default) and leaves everything else alone.
 
 The host programs it uses are options under `programs.frametop.host`: `steamvr` (`/opt/steamvr`), `startPlasma`, `vrpathreg`, `kwriteconfig`, and `stockLauncher`.
@@ -129,7 +130,7 @@ Upstream's scripts still work from the tree, for example `$(dirname $(readlink -
 
 | Package | What it is |
 | --- | --- |
-| `ft-screens` | The compositor (`screens/build.sh`), and `ft-handtest` |
+| `ft-screens` | The compositor (`screens/build.sh`), `ft-handtest`, `ft-handview` (the drawn hands), and `ft-spotpanel` (spotwatch's panel) |
 | `ft-pointer` | The 3D mouse's helper (`pointer/helper/build.sh`) |
 | `ft-powerd` | The power service (`power/build.sh`) |
 | `ft-pointer-driver` | The `ft_pointer` SteamVR driver, laid out how SteamVR expects (`share/frametop/ft_pointer`) |
@@ -138,6 +139,8 @@ Upstream's scripts still work from the tree, for example `$(dirname $(readlink -
 | `ft-hands` | The hand tracker (`hands/Makefile`), with nixpkgs' ncnn |
 | `ft-camd` | The camera broker, static (`hands/Makefile`) |
 | `ft-handpanel` | The hand recorder's headset panel (`hands/rec/build.sh`) |
+| `ft-keyboard` | Full Keyboard by TaiKeid, Frametop's keyboard (`keyboard/build.sh`), with Pinyin, Hangul, and Anthy |
+| `hand-models` | The fine-tuned hand models `hands/models.pin` pins (`hands/models.sh fetch`), as `hands/models/student` |
 | `frametop-apps` (`default`) | The scripts, Python tools, the settings apps, and the hand recorder as one tree in `share/frametop`, with the programs above inside it |
 | `frametop-scripts` | The same tree without the apps, so no Qt |
 
@@ -145,7 +148,7 @@ Upstream's scripts still work from the tree, for example `$(dirname $(readlink -
 
 `share/frametop` mirrors the upstream repo. The scripts find each other by relative path (`$here/../layout/ft-layout`) and ft-screens finds `ft-layout` from its own path, so each program sits where upstream's build would put it (`screens/build/ft-screens`). The settings apps live in the same tree since they import `ft_layout` and call `desktops.sh` by relative path.
 
-Upstream's scripts read four env vars (added by [patches](#patches) 0001, 0004, and 0005): `FRAMETOP_SCREENS_BIN` (run ft-screens on the host, not in the container), `FRAMETOP_PYTHON`, `FRAMETOP_STARTPLASMA`, and `FRAMETOP_HOST_BUILDS` (run gaze's and hand tracking's programs on the host). The package defaults them to store paths but exports nothing, so the host Plasma the session starts gets a clean environment (no `LD_LIBRARY_PATH`, no Qt paths).
+Upstream's scripts read four env vars (added by [patches](#patches) 0001, 0004, and 0005): `FRAMETOP_SCREENS_BIN` (run ft-screens on the host, not in the container), `FRAMETOP_PYTHON`, `FRAMETOP_STARTPLASMA`, and `FRAMETOP_HOST_BUILDS` (run gaze's, hand tracking's, and spotwatch's programs on the host). The package defaults them to store paths but exports nothing, so the host Plasma the session starts gets a clean environment (no `LD_LIBRARY_PATH`, no Qt paths).
 
 ft-screens (EGL, GLES, GBM) has `/run/opengl-driver/lib` first in its RUNPATH. The settings apps find the same drivers through nixpkgs' libglvnd, which looks there too.
 
@@ -185,6 +188,9 @@ CI (`.github/workflows/build.yml`) runs on PRs and pushes to main, natively on G
 | 0006 conf-migrate | `scripts/conf-migrate.sh` stops at an error instead of emptying `frametop.conf` |
 | 0007 hands session | `ft-handsctl` and `ft-cutouts` reach the real user session from a terminal in the Frametop desktop |
 | 0008 hands caps | `ft-cutouts` and the hand recorder check `ft-camd`'s capabilities on the file, not the tree's link to it |
+| 0009 spotwatch host builds | `FRAMETOP_HOST_BUILDS`: spotwatch runs `ft-spotpanel` on the host |
+| 0010 handsmode caps | The same caps check for `hands/handsmode.py` (Input Settings' Hands page) |
+| 0011 models home | Model versions picked by name download to `$XDG_DATA_HOME/frametop/models` when the tree is read-only, and `ft-hands` looks there |
 
 To change them, in a frametop checkout (`git am ../frametop-nix/patches/*` on upstream `experimental` recreates the branch):
 

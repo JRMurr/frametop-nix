@@ -52,7 +52,7 @@ jobs:
         run: |
           nix build -L \
             .#ft-screens .#ft-pointer .#ft-powerd .#ft-pointer-driver \
-            .#ft-gaze .#ft-eyegrab .#ft-hands .#ft-camd .#ft-handpanel \
+            .#ft-gaze .#ft-eyegrab .#ft-hands .#ft-camd .#ft-handpanel .#ft-keyboard \
             .#frametop-scripts .#frametop-apps
 
       - name: Build a Home Manager configuration with programs.frametop
@@ -82,14 +82,16 @@ jobs:
           apps=$(nix build --no-link --print-out-paths .#frametop-apps)
           export HOME=$RUNNER_TEMP/home XDG_RUNTIME_DIR=$RUNNER_TEMP/runtime
           mkdir -p "$HOME" "$XDG_RUNTIME_DIR" && chmod 700 "$XDG_RUNTIME_DIR"
-          for app in ft-display-settings ft-input-settings ft-handrec; do
+          # ft-tour's script forces Wayland, so the app it runs is started directly.
+          for app in bin/ft-display-settings bin/ft-input-settings bin/ft-handrec libexec/frametop/ft-tour-app; do
             # Each exits 1 at once if its QML (Kirigami, the org.kde.desktop style) doesn't
             # load; still running after a few seconds means it did.
             set +e
-            QT_QPA_PLATFORM=offscreen timeout 15 "$apps/bin/$app" > "$RUNNER_TEMP/$app.log" 2>&1
+            log=$RUNNER_TEMP/$(basename $app).log
+            QT_QPA_PLATFORM=offscreen timeout 15 "$apps/$app" > "$log" 2>&1
             code=$?
             set -e
-            cat "$RUNNER_TEMP/$app.log"
+            cat "$log"
             [ "$code" = 124 ] || { echo "$app exited with $code" >&2; exit 1; }
             echo "$app: loaded"
           done

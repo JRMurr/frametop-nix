@@ -1,0 +1,30 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: John Murray <5672686+JRMurr@users.noreply.github.com>
+Date: Thu, 15 Oct 2026 22:39:53 +0000
+Subject: [PATCH] Hands: handsmode checks ft-camd's capabilities on the file,
+ not a link
+
+The unit's ExecStart is hands/build/ft-camd, which in frametop-nix's tree links to the copy
+that has them, so Frametop Input Settings' Hands page said they were missing.
+---
+ hands/handsmode.py | 5 +++--
+ 1 file changed, 3 insertions(+), 2 deletions(-)
+
+diff --git a/hands/handsmode.py b/hands/handsmode.py
+index ff2c6a3..765e4f7 100755
+--- a/hands/handsmode.py
++++ b/hands/handsmode.py
+@@ -202,10 +202,11 @@ class Host:
+         return os.path.exists(path)
+ 
+     def caps(self, path):
+-        """Does ft-camd have its capabilities? None: can't tell (no getcap)."""
++        """Does ft-camd have its capabilities? None: can't tell (no getcap). The file itself:
++        getcap shows nothing for a link to it."""
+         if not shutil.which("getcap"):
+             return None
+-        return "cap_sys_ptrace" in self.run(["getcap", path]).stdout
++        return "cap_sys_ptrace" in self.run(["getcap", os.path.realpath(path)]).stdout
+ 
+     def desktop_up(self):
+         return self.run(["pgrep", "-x", "ft-screens"]).returncode == 0

@@ -1,0 +1,84 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: John Murray <5672686+JRMurr@users.noreply.github.com>
+Date: Tue, 20 Oct 2026 23:26:15 -0400
+Subject: [PATCH] Models: a read-only tree keeps downloaded versions under
+ XDG_DATA_HOME
+
+models/catalog.py fetched versions into the tree (hands/models/versions,
+gaze/tracker/models), which a Nix store path can't take. When the tree
+isn't writable they go to $XDG_DATA_HOME/frametop/models/<store> instead,
+and ft-hands looks for HANDS_MODEL's version there too.
+---
+ hands/track/main.cpp        | 10 +++++++++-
+ models/catalog.py           |  7 ++++++-
+ models/test/test_catalog.py | 11 +++++++++++
+ 3 files changed, 26 insertions(+), 2 deletions(-)
+
+diff --git a/hands/track/main.cpp b/hands/track/main.cpp
+index 0a1bb9b..ca4277f 100644
+--- a/hands/track/main.cpp
++++ b/hands/track/main.cpp
+@@ -464,6 +464,14 @@ int main(int argc, char **argv) {
+     auto has_models = [](const std::string &dir) {
+         return access((dir + "/hand.ncnn.param").c_str(), R_OK) == 0 && access((dir + "/palm.ncnn.param").c_str(), R_OK) == 0;
+     };
++    // A read-only tree (a Nix store path) keeps downloaded versions under XDG_DATA_HOME, as
++    // models/catalog.py does.
++    std::string versions_root = model_root + "versions/";
++    if (access(model_root.c_str(), W_OK) != 0) {
++        const char *data = std::getenv("XDG_DATA_HOME"), *home = std::getenv("HOME");
++        const std::string base = data && *data ? data : std::string(home ? home : "") + "/.local/share";
++        versions_root = base + "/frametop/models/hands/models/versions/";
++    }
+     if (models.empty()) {
+         const std::string pick = setting("HANDS_MODEL");
+         const bool name_ok = !pick.empty() && pick.size() <= 64 && std::isalnum((unsigned char)pick[0]) &&
+@@ -472,7 +480,7 @@ int main(int argc, char **argv) {
+         if (pick == "stock" || pick == "off" || pick == "none") {
+             models = model_root + "ncnn";
+         } else if (name_ok && pick != "latest") {
+-            if (!int8 && has_models(model_root + "versions/" + pick)) models = model_root + "versions/" + pick;
++            if (!int8 && has_models(versions_root + pick)) models = versions_root + pick;
+             else if (!int8)
+                 std::fprintf(stderr, "HANDS_MODEL=%s isn't downloaded (Frametop Input Settings > Hands, or "
+                              "models/ft-models fetch hands %s): using the latest\n", pick.c_str(), pick.c_str());
+diff --git a/models/catalog.py b/models/catalog.py
+index 54d7587..c6b5589 100644
+--- a/models/catalog.py
++++ b/models/catalog.py
+@@ -169,7 +169,12 @@ def validate(cat, kind):
+ # --- where and which ---
+ 
+ def store(kind, tree=REPO):
+-    return Path(tree) / SPECS[kind]["store"]
++    """The kind's versions folder: in the tree, or under XDG_DATA_HOME when the tree can't be
++    written (a read-only install, such as a Nix store path)."""
++    if os.access(tree, os.W_OK):
++        return Path(tree) / SPECS[kind]["store"]
++    data = Path(os.environ.get("XDG_DATA_HOME") or Path.home() / ".local" / "share")
++    return data / "frametop" / "models" / SPECS[kind]["store"]
+ 
+ 
+ def channel(tree=REPO):
+diff --git a/models/test/test_catalog.py b/models/test/test_catalog.py
+index 560cb6d..2ead188 100644
+--- a/models/test/test_catalog.py
++++ b/models/test/test_catalog.py
+@@ -159,6 +159,17 @@ class Store(unittest.TestCase):
+         (d / "model.ncnn.bin").write_bytes(b"changed")
+         self.assertEqual(catalog.verify("eyes", "eyes-t1", self.tree), ["model.ncnn.bin"])
+ 
++    def test_read_only_tree_stores_in_data_home(self):
++        # A tree that can't be written (a Nix store path): versions go under XDG_DATA_HOME.
++        data = self.tree / "data"
++        real_access = os.access
++        read_only = lambda p, mode: False if mode & os.W_OK and Path(p) == self.tree else real_access(p, mode)
++        with mock.patch.dict(os.environ, {"XDG_DATA_HOME": str(data)}), mock.patch.object(catalog.os, "access", read_only):
++            d, _ = self.fetch()
++            self.assertEqual(d, data / "frametop/models/gaze/tracker/models/eyes-t1")
++            self.assertEqual(catalog.installed("eyes", "eyes-t1", self.tree), d)
++        self.assertFalse((self.tree / "gaze").exists())
++
+     def test_bad_file_not_kept(self):
+         with self.assertRaises(catalog.CatalogError):
+             self.fetch(hf=FakeHF(dict(FILES, **{"model.ncnn.bin": b"tampered"})))

@@ -1,0 +1,31 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: John Murray <5672686+JRMurr@users.noreply.github.com>
+Date: Thu, 15 Oct 2026 22:39:46 +0000
+Subject: [PATCH] Spotwatch: FRAMETOP_HOST_BUILDS runs ft-spotpanel on the host
+
+---
+ spotwatch/ft_spotwatch.py | 4 +++-
+ 1 file changed, 3 insertions(+), 1 deletion(-)
+
+diff --git a/spotwatch/ft_spotwatch.py b/spotwatch/ft_spotwatch.py
+index 38c7b1b..bcc22b2 100644
+--- a/spotwatch/ft_spotwatch.py
++++ b/spotwatch/ft_spotwatch.py
+@@ -64,6 +64,8 @@ import spotsearch  # noqa: E402
+ 
+ PANEL = os.path.join(REPO, "screens", "build", "ft-spotpanel")
+ IN_BOX = os.path.join(REPO, "scripts", "in-box")  # runs a program in the container it was built in
++# FRAMETOP_HOST_BUILDS=1: screens/build is built for the host (frametop-nix), so PANEL runs directly.
++HOST_BUILDS = os.environ.get("FRAMETOP_HOST_BUILDS", "0") == "1"
+ FT_LAYOUT = os.path.join(REPO, "layout", "ft-layout")
+ STANDALONE_ACTION = "frametop-standalone"  # Launch as Standalone (float/ft_apps.py): what Enter does anyway
+ USAGE_PATH = os.path.expanduser("~/.config/frametop-spotwatch.json")
+@@ -371,7 +373,7 @@ class Spotwatch:
+             log(f"ft-spotpanel isn't built: run {REPO}/screens/build.sh")
+             return False
+         env = dict(os.environ, XDG_RUNTIME_DIR=f"/run/user/{os.getuid()}")  # podman needs the real one
+-        args = [IN_BOX, PANEL, "--watch-stdin", "--socket", self.args.panel_socket, "--notify", self.args.socket]
++        args = ([] if HOST_BUILDS else [IN_BOX]) + [PANEL, "--watch-stdin", "--socket", self.args.panel_socket, "--notify", self.args.socket]
+         try:
+             self.panel = subprocess.Popen(args, env=env, stdin=subprocess.PIPE, stdout=subprocess.DEVNULL,
+                                           start_new_session=True)

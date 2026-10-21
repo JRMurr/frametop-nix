@@ -30,10 +30,13 @@ stdenv.mkDerivation {
     cxx="$CXX -O2 -g -Wall -Wextra -Wno-unused-parameter -Wno-psabi -std=c++17 -fopenmp \
       -I${lib.getDev ncnn}/include/ncnn"
     track="track/calib.cpp track/nets.cpp track/tracker.cpp track/io.cpp track/record.cpp \
-      track/pinch.cpp track/sides.cpp"
+      track/pinch.cpp track/sides.cpp track/skeleton.cpp track/flagbuf.cpp"
     mkdir -p build
     $cxx -o build/ft-hands track/main.cpp $track -lncnn -ljsoncpp -fopenmp -lpthread
-    $cxx -o build/sides-test tests/sides_test.cpp $track -lncnn -ljsoncpp -fopenmp -lpthread
+    for t in sides pinch flagbuf; do
+      $cxx -o build/$t-test tests/''${t}_test.cpp $track -lncnn -ljsoncpp -fopenmp -lpthread
+    done
+    $cxx -o build/skeleton-test tests/skeleton_test.cpp track/skeleton.cpp
     runHook postBuild
   '';
 
@@ -42,6 +45,9 @@ stdenv.mkDerivation {
   checkPhase = ''
     runHook preCheck
     build/sides-test
+    build/skeleton-test
+    build/pinch-test
+    build/flagbuf-test
     runHook postCheck
   '';
 

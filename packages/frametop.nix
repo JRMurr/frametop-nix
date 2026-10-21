@@ -16,6 +16,7 @@
   python3,
   glib,
   gobject-introspection,
+  gdk-pixbuf,
   qt6,
   kdePackages,
   ft-screens,
@@ -24,6 +25,8 @@
   ft-gaze,
   ft-hands,
   ft-handpanel,
+  ft-keyboard,
+  hand-models,
   zstd,
   src,
   withSettingsApps ? true,
@@ -35,8 +38,8 @@
 }:
 
 let
-  # ft-floatd and Launch as Standalone use dbus-python and PyGObject (GLib, Gio). The
-  # typelib path is set for this interpreter only, not exported to the desktop.
+  # ft-floatd, Launch as Standalone, and spotwatch use dbus-python and PyGObject (GLib, Gio,
+  # GdkPixbuf). The typelib path is set for this interpreter only, not exported to the desktop.
   scriptPython = python3.withPackages (ps: [
     ps.dbus-python
     ps.pygobject3
@@ -44,9 +47,12 @@ let
   typelibPath = lib.makeSearchPath "lib/girepository-1.0" [
     glib.out
     gobject-introspection
+    gdk-pixbuf
   ];
   appPython = python3.withPackages (ps: [ ps.pyside6 ]);
   # Our own eye tracker's ft-eyes (gaze/tracker/requirements.txt).
+  # TODO: ncnn, for the eye net (gaze/tracker/eyes_net.py); nixpkgs has no Python ncnn, so
+  # ft-eyes uses the pupil finder.
   eyesPython = python3.withPackages (ps: [
     ps.numpy
     ps.opencv4
@@ -86,14 +92,17 @@ stdenvNoCC.mkDerivation {
     runHook preInstall
     tree=$out/${share}
     mkdir -p $tree
+    # voice/: Input Settings imports voice_commands (standard library); dictation itself isn't
+    # packaged (TODO).
     cp -r README.md LICENSE desktops.sh decoration display-settings docs float gaze hands input \
-      input-settings layout remote scripts session setup steam $tree/
+      input-settings keyboard layout models recorder remote scripts session setup spotwatch steam tour voice $tree/
     mkdir -p $tree/pointer/helper $tree/screens/build $tree/power/build
     cp -r pointer/helper/actions $tree/pointer/helper/
 
     # The programs, where the scripts and their own lookups expect them. ft-screens is a
     # copy: it finds ft-layout from its own real path (/proc/self/exe).
     install -m755 ${ft-screens}/bin/ft-screens $tree/screens/build/ft-screens
+    ln -s ${ft-screens}/bin/ft-handview ${ft-screens}/bin/ft-spotpanel $tree/screens/build/
     mkdir -p $tree/pointer/helper/build
     ln -s ${ft-pointer}/lib/ft-pointer/bin/ft-pointer $tree/pointer/helper/build/ft-pointer
     ln -s ${ft-powerd}/bin/ft-powerd $tree/power/build/ft-powerd
@@ -104,8 +113,12 @@ stdenvNoCC.mkDerivation {
     # ft-hands finds its models from argv[0] (hands/build/../models), so a link does.
     mkdir -p $tree/hands/build $tree/hands/rec/build
     ln -s ${ft-hands}/bin/ft-hands $tree/hands/build/ft-hands
+    ln -s ${hand-models} $tree/hands/models/student
     ln -s ${camdPath} $tree/hands/build/ft-camd
     ln -s ${ft-handpanel}/bin/ft-handpanel $tree/hands/rec/build/ft-handpanel
+    # Full Keyboard: frametop-keyboard.service runs it with --data-dir keyboard/.
+    mkdir -p $tree/keyboard/build/frametop
+    ln -s ${ft-keyboard}/bin/framekeyboard $tree/keyboard/build/frametop/framekeyboard
 
     makeWrapper ${scriptPython}/bin/python3 $out/libexec/frametop/ft-python \
       --prefix GI_TYPELIB_PATH : ${typelibPath}
@@ -116,12 +129,20 @@ stdenvNoCC.mkDerivation {
                      "screens_bin=\''${FRAMETOP_SCREENS_BIN:-$tree/screens/build/ft-screens}" \
       --replace-fail '"''${FRAMETOP_PYTHON:-python3}"' "\"\''${FRAMETOP_PYTHON:-$out/libexec/frametop/ft-python}\"" \
       --replace-fail '"''${FRAMETOP_STARTPLASMA:-startplasma-wayland}"' "\"\''${FRAMETOP_STARTPLASMA:-${startPlasma}}\""
+    # ft-gtksettings needs PyGObject's typelibs; ft-dashroute only the standard library.
+    substituteInPlace $tree/session/frametop-session.sh \
+      --replace-fail 'exec "$here/ft-gtksettings"' "exec $out/libexec/frametop/ft-python \"\$here/ft-gtksettings\"" \
+      --replace-fail "exec /usr/bin/python3 -I \"\$here/../float/ft-dashroute\"" "exec ${scriptPython}/bin/python3 -I \"\$here/../float/ft-dashroute\""
+    substituteInPlace $tree/tour/ft-tour \
+      --replace-fail '/usr/bin/python3 -I' '${scriptPython}/bin/python3 -I'
+    substituteInPlace $tree/spotwatch/ft-spotwatch \
+      --replace-fail 'exec python3 ' "exec $out/libexec/frametop/ft-python "
     for f in layout/ft-layout float/ft-floatd float/ft-float-apps; do
       substituteInPlace $tree/$f \
         --replace-fail '"''${FRAMETOP_PYTHON:-python3}"' "\"\''${FRAMETOP_PYTHON:-$out/libexec/frametop/ft-python}\""
     done
-    # gaze/build's and hands/build's programs above are built for the host.
-    for f in gaze/gazecal.py hands/rec/session.py; do
+    # gaze/build's, hands/build's and screens/build's programs above are built for the host.
+    for f in gaze/gazecal.py hands/rec/session.py spotwatch/ft_spotwatch.py; do
       substituteInPlace $tree/$f \
         --replace-fail '"FRAMETOP_HOST_BUILDS", "0"' '"FRAMETOP_HOST_BUILDS", "1"'
     done
@@ -146,7 +167,7 @@ stdenvNoCC.mkDerivation {
     sed "s|@SESSION@|$tree/session/frametop-session.sh|" session/deckard-nested-desktop.desktop \
       > $out/${share}-entries/deckard-nested-desktop.desktop
     for f in display-settings/ft-layout-reset display-settings/ft-screens-toggle \
-      ${lib.optionalString withSettingsApps "display-settings/ft-display-settings input-settings/ft-input-settings hands/rec/ft-handrec"}; do
+      ${lib.optionalString withSettingsApps "display-settings/ft-display-settings input-settings/ft-input-settings hands/rec/ft-handrec tour/ft-tour"}; do
       sed "s|@REPO@|$tree|g" $f.desktop > $out/${share}-entries/$(basename $f).desktop
     done
 
@@ -174,6 +195,16 @@ stdenvNoCC.mkDerivation {
         --suffix PATH : ${lib.makeBinPath [ zstd ]}
       ln -s ../${share}/''${app%%:*} $out/bin/$(basename $launcher)
     done
+
+    # ft-tour also has --first-run and --reset (the desktop's autostart), so it keeps its
+    # script and runs the app directly instead of in the container.
+    makeQtWrapper ${appPython}/bin/python3 $out/libexec/frametop/ft-tour-app \
+      --add-flags $tree/tour/ft_tour.py \
+      --set-default QT_QPA_PLATFORM 'wayland;xcb'
+    substituteInPlace $tree/tour/ft-tour \
+      --replace-fail 'exec "$here/../scripts/in-box" env' 'exec env' \
+      --replace-fail '  python3 "$here/ft_tour.py"' "  $out/libexec/frametop/ft-tour-app"
+    ln -s ../${share}/tour/ft-tour $out/bin/ft-tour
   '';
 
   doInstallCheck = true;

@@ -14,4 +14,5 @@ in
 {
   truetype = header "stb_truetype.h" "sha256-7NMLBeDdT+o6E8JoEN2eGZLcN5BJSCw5PVoZ5rUJCqs=";
   image = header "stb_image.h" "sha256-WUwv411JSItDgtv67I+YNm3vyoGdkWrJW+zz519CALM=";
+  imageWrite = header "stb_image_write.h" "sha256-y9XwrXqc9EaK/7NjVKHSM4A08sEkc88ajjIFPLaRSgU=";
 }

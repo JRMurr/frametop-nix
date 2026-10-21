@@ -7,10 +7,10 @@ ft-cutouts and the hand recorder (session.tracker_argv) ran hands/build's
 ft-hands in the dev container. With FRAMETOP_HOST_BUILDS=1 they run it directly.
 ---
  hands/ft-cutouts                     |  9 +++-
- hands/rec/session.py                 | 45 +++++++++++++----
- hands/rec/tests/test_tracker_argv.py | 33 +++++++++++++
+ hands/rec/session.py                 | 44 +++++++++++++----
+ hands/rec/tests/test_tracker_argv.py | 31 ++++++++++++
  hands/tests/test_cutouts.py          | 72 ++++++++++++++++++++++++++++
- 4 files changed, 148 insertions(+), 11 deletions(-)
+ 4 files changed, 145 insertions(+), 11 deletions(-)
  create mode 100644 hands/rec/tests/test_tracker_argv.py
  create mode 100644 hands/tests/test_cutouts.py
 
@@ -45,10 +45,10 @@ index f678c9d..4a84b13 100755
      "$here/ft-handsctl" cutouts on >/dev/null || true
      sleep 4
 diff --git a/hands/rec/session.py b/hands/rec/session.py
-index ea2eb5a..5ffe629 100755
+index 36143a5..eda1679 100755
 --- a/hands/rec/session.py
 +++ b/hands/rec/session.py
-@@ -25,6 +25,7 @@ each is a part of the take's recording (sets-N.bin). --auto is the old timed flo
+@@ -28,6 +28,7 @@ each is a part of the take's recording (sets-N.bin). --auto is the old timed flo
  All _ns times are CLOCK_MONOTONIC nanoseconds.
  """
  import argparse
@@ -56,8 +56,8 @@ index ea2eb5a..5ffe629 100755
  import glob
  import hashlib
  import json
-@@ -129,6 +130,35 @@ def in_container():
-     return os.path.exists("/run/.containerenv") or os.path.exists("/.dockerenv")
+@@ -154,6 +155,35 @@ NO_HANDS_RETRY_BUTTON = ("Try again: hold both hands up in front of you, about 4
+                          "button. To stop instead: hold the button, or Esc or Stop in the Hand recorder window.")
  
  
 +class Builds(enum.Enum):
@@ -83,39 +83,44 @@ index ea2eb5a..5ffe629 100755
 +
 +
 +def tracker_argv(argv, builds, place):
-+    """argv for ft-hands, started from place: in the dev container unless it's built for the host."""
++    """argv for ft-hands, started from place: in its container (in-box) unless it's built for the host."""
 +    if builds == Builds.HOST or place == Place.CONTAINER:
 +        return list(argv)
-+    return [os.path.expanduser("~/.local/bin/distrobox"), "enter", "dev", "--"] + list(argv)
++    return [IN_BOX] + list(argv)
 +
 +
- def host_command(*cmd):
-     """argv to run a command on the SteamOS host from the dev container (as in
-     display-settings: distrobox-host-exec needs the user's real session bus). It runs from the
-@@ -637,9 +667,7 @@ class Recorder:
+ def run_dir():
+     return "/run/user/%d/frametop-hands" % os.getuid()
+ 
+@@ -487,9 +517,8 @@ def get_ready(frametop_hands=False, need_live=False, panel_bin=None, on_part=lam
+             if not start_live("hands"):
+                 return out
+         else:
+-            argv = [FT_HANDS, "--no-gestures", "--status", "0"]
+-            if not STANDALONE:   # built in Frametop's container: it runs there
+-                argv = [IN_BOX] + argv
++            # A user unit, so it starts on the host.
++            argv = tracker_argv([FT_HANDS, "--no-gestures", "--status", "0"], builds(), Place.HOST)
+             try:
+                 if start_unit(HANDS_UNIT, "hand tracking for feedback", argv, log):
+                     out["units"].append(HANDS_UNIT)
+@@ -759,9 +788,7 @@ class Recorder:
                  "--sides", "auto" if swap is None else "1" if swap else "0"]
          if ring:
              argv += ["--ring", ring]
 -        if not in_container() and not STANDALONE:
--            argv = [os.path.expanduser("~/.local/bin/distrobox"), "enter", "dev", "--"] + argv
+-            argv = [IN_BOX] + argv
 -        self.proc = subprocess.Popen(argv, stdin=subprocess.DEVNULL, stdout=log_file, stderr=log_file)
 +        self.proc = subprocess.Popen(tracker_argv(argv, builds(), here()), stdin=subprocess.DEVNULL, stdout=log_file, stderr=log_file)
          self.started_ns = mono_ns()
  
      def exited(self):
-@@ -1692,15 +1720,14 @@ class Session:
-             raise _Stop()
+@@ -2002,11 +2029,10 @@ class Session:
  
      def _start_tracker(self):
-+        up = os.path.join(REPO, "scripts", "container-up.sh")
-+        if builds() == Builds.CONTAINER and os.access(up, os.X_OK):
-+            subprocess.run(host_command(up), capture_output=True, timeout=120)
          argv = [FT_HANDS, "--no-gestures", "--status", "0"]
--        if not STANDALONE:   # built in the dev container: it runs there
--            up = os.path.join(REPO, "scripts", "container-up.sh")
--            if os.access(up, os.X_OK):
--                subprocess.run(host_command(up), capture_output=True, timeout=120)
--            argv = [os.path.expanduser("~/.local/bin/distrobox"), "enter", "dev", "--"] + argv
+-        if not STANDALONE:   # built in Frametop's container: it runs there
+-            argv = [IN_BOX] + argv
          if self.ring:
              argv += ["--ring", self.ring]
 -        self._start_unit(HANDS_UNIT, "hand tracking for feedback", argv)
@@ -126,10 +131,10 @@ index ea2eb5a..5ffe629 100755
          try:
 diff --git a/hands/rec/tests/test_tracker_argv.py b/hands/rec/tests/test_tracker_argv.py
 new file mode 100644
-index 0000000..f2b0467
+index 0000000..2908ba7
 --- /dev/null
 +++ b/hands/rec/tests/test_tracker_argv.py
-@@ -0,0 +1,33 @@
+@@ -0,0 +1,31 @@
 +#!/usr/bin/env python3
 +"""Tests for session.tracker_argv: where the recorder runs ft-hands.
 +
@@ -153,9 +158,7 @@ index 0000000..f2b0467
 +
 +    def test_container_builds_from_the_host_enter_it(self):
 +        argv = session.tracker_argv(ARGV, session.Builds.CONTAINER, session.Place.HOST)
-+        self.assertTrue(argv[0].endswith("/distrobox"))
-+        self.assertEqual(argv[1:4], ["enter", "dev", "--"])
-+        self.assertEqual(argv[4:], ARGV)
++        self.assertEqual(argv, [session.IN_BOX] + ARGV)
 +
 +    def test_container_builds_in_the_container_run_directly(self):
 +        self.assertEqual(session.tracker_argv(ARGV, session.Builds.CONTAINER, session.Place.CONTAINER), ARGV)

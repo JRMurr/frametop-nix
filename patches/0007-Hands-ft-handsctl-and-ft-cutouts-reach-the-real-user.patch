@@ -27,10 +27,10 @@ index 4a84b13..2035a69 100755
  camd=frametop-cutouts-camd.service hands=frametop-cutouts-hands.service
  # FRAMETOP_HOST_BUILDS=1: build/ft-hands is built for the host (frametop-nix), not the dev container.
 diff --git a/hands/ft-handsctl b/hands/ft-handsctl
-index 8de5f66..c91a1c5 100755
+index 73f2962..687a518 100755
 --- a/hands/ft-handsctl
 +++ b/hands/ft-handsctl
-@@ -10,6 +10,10 @@
+@@ -13,6 +13,10 @@
  #
  # Needs the services installed once: hands/run.sh install (it sets ft-camd's capabilities).
  set -euo pipefail
