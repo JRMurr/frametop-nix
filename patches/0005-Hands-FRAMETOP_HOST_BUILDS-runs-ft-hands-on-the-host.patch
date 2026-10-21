@@ -45,7 +45,7 @@ index f678c9d..4a84b13 100755
      "$here/ft-handsctl" cutouts on >/dev/null || true
      sleep 4
 diff --git a/hands/rec/session.py b/hands/rec/session.py
-index af2f879..b07850b 100755
+index 36143a5..eda1679 100755
 --- a/hands/rec/session.py
 +++ b/hands/rec/session.py
 @@ -28,6 +28,7 @@ each is a part of the take's recording (sets-N.bin). --auto is the old timed flo
@@ -56,7 +56,7 @@ index af2f879..b07850b 100755
  import glob
  import hashlib
  import json
-@@ -153,6 +154,35 @@ NO_HANDS_RETRY_BUTTON = ("Try again: hold both hands up in front of you, about 4
+@@ -154,6 +155,35 @@ NO_HANDS_RETRY_BUTTON = ("Try again: hold both hands up in front of you, about 4
                           "button. To stop instead: hold the button, or Esc or Stop in the Hand recorder window.")
  
  
@@ -92,7 +92,7 @@ index af2f879..b07850b 100755
  def run_dir():
      return "/run/user/%d/frametop-hands" % os.getuid()
  
-@@ -486,9 +516,8 @@ def get_ready(frametop_hands=False, need_live=False, panel_bin=None, on_part=lam
+@@ -487,9 +517,8 @@ def get_ready(frametop_hands=False, need_live=False, panel_bin=None, on_part=lam
              if not start_live("hands"):
                  return out
          else:
@@ -104,7 +104,7 @@ index af2f879..b07850b 100755
              try:
                  if start_unit(HANDS_UNIT, "hand tracking for feedback", argv, log):
                      out["units"].append(HANDS_UNIT)
-@@ -758,9 +787,7 @@ class Recorder:
+@@ -759,9 +788,7 @@ class Recorder:
                  "--sides", "auto" if swap is None else "1" if swap else "0"]
          if ring:
              argv += ["--ring", ring]
@@ -115,7 +115,7 @@ index af2f879..b07850b 100755
          self.started_ns = mono_ns()
  
      def exited(self):
-@@ -2005,11 +2032,10 @@ class Session:
+@@ -2002,11 +2029,10 @@ class Session:
  
      def _start_tracker(self):
          argv = [FT_HANDS, "--no-gestures", "--status", "0"]

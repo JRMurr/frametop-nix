@@ -16,10 +16,10 @@ systemd-run at the real session's runtime dir when not in distrobox.
  5 files changed, 22 insertions(+), 10 deletions(-)
 
 diff --git a/display-settings/ft_display_settings.py b/display-settings/ft_display_settings.py
-index f5e7ae2..d9e737c 100644
+index 57a5c20..93a16c3 100644
 --- a/display-settings/ft_display_settings.py
 +++ b/display-settings/ft_display_settings.py
-@@ -91,10 +91,13 @@ def host_command(*cmd):
+@@ -94,10 +94,13 @@ def host_command(*cmd):
  
      distrobox-host-exec reaches the host through the user's real session bus; inside the
      desktop our DBUS_SESSION_BUS_ADDRESS is the nested session's private one, where it
@@ -65,7 +65,7 @@ index 4706963..f535539 100755
 -exec python3 "$(dirname "$(readlink -f "$0")")/ft_layout.py" "$@"
 +exec "${FRAMETOP_PYTHON:-python3}" "$(dirname "$(readlink -f "$0")")/ft_layout.py" "$@"
 diff --git a/session/frametop-session.sh b/session/frametop-session.sh
-index a9c0357..b91907e 100755
+index 0efdd08..b91b1bc 100755
 --- a/session/frametop-session.sh
 +++ b/session/frametop-session.sh
 @@ -104,10 +104,17 @@ if [ "${1:-}" != --inner ]; then
@@ -87,7 +87,7 @@ index a9c0357..b91907e 100755
      "${screen_args[@]}" --spares "$float_slots" > /tmp/frametop-screens.log 2>&1 < /dev/null &
    # With HANDS_MODE=frametop, hand tracking and the hand view run while this desktop does
    # (hands/handsmode.py; it does nothing for the other modes).
-@@ -280,7 +287,7 @@ fi
+@@ -344,7 +351,7 @@ fi
  # apps' desktop files with that action, first in XDG_DATA_DIRS, so only this desktop sees
  # them. Written now, before Plasma reads them; ft-floatd keeps them up to date.
  if [ "$float_slots" -gt 0 ]; then
@@ -96,7 +96,7 @@ index a9c0357..b91907e 100755
    export XDG_DATA_DIRS=$HOME/.local/share/frametop/apps:${XDG_DATA_DIRS:-/usr/local/share:/usr/share}
  fi
  
-@@ -295,6 +302,7 @@ if [ "$float_slots" -gt 0 ]; then
+@@ -359,6 +366,7 @@ if [ "$float_slots" -gt 0 ]; then
    rm -rf "$deco_dir" "$deco_dir"_try*  # (decoration/apply.sh's copies)
    mkdir -p "$(dirname "$deco_dir")"
    cp -r "$here/../decoration" "$deco_dir"
@@ -104,12 +104,18 @@ index a9c0357..b91907e 100755
    rm -f "$deco_dir/apply.sh"
    kwriteconfig6 --file "$kwinrc" --group org.kde.kdecoration2 --key library org.kde.kwin.aurorae
    kwriteconfig6 --file "$kwinrc" --group org.kde.kdecoration2 --key theme "$deco"
-@@ -353,6 +361,7 @@ kwriteconfig6 --file "$XDG_CONFIG_HOME/ksmserverrc" --group General --key loginM
+@@ -417,7 +425,7 @@ kwriteconfig6 --file "$XDG_CONFIG_HOME/ksmserverrc" --group General --key loginM
  # Plasma keeps a panel on a screen number, and never moves one whose screen this desktop
  # doesn't have, like a spare output or a screen a smaller layout dropped. Put such a panel
  # back on the first (primary) screen before Plasma reads the file (session/fix-panels.py).
 -python3 "$here/fix-panels.py" --screens "$screens" || true
 +"${FRAMETOP_PYTHON:-python3}" "$here/fix-panels.py" --screens "$screens" || true
+ 
+ # Plasma's logout (Leave) ends its session manager and then KWin, and this script ends with
+ # them. KWin 6.2.5 can crash on the way out (SIGSEGV in its libei backend's teardown, with
+@@ -451,4 +459,5 @@ logout_watch() {
+ logout_watch &
+ watch_pid=$!
  
 -dbus-run-session startplasma-wayland
 +# FRAMETOP_STARTPLASMA: the host's Plasma, when PATH might find another one first.

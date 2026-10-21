@@ -15,16 +15,19 @@ With FRAMETOP_HOST_BUILDS=1 they run directly (gazecal.build_argv).
  create mode 100644 gaze/test_gazecal_builds.py
 
 diff --git a/gaze/ft-gazed b/gaze/ft-gazed
-index 10466c7..5da7302 100755
+index 93aa877..cbb70b4 100755
 --- a/gaze/ft-gazed
 +++ b/gaze/ft-gazed
-@@ -132,12 +132,11 @@ from pathlib import Path
+@@ -149,7 +149,7 @@ from pathlib import Path
  
  sys.path.insert(0, str(Path(__file__).resolve().parent))
- from gazecal import (DEFAULT_MODEL, EYE_FOUND, EYE_LOST, MODELS, STATE, Correction, EyeFallback,  # noqa: E402
--                     EyeWeights, Fixation, LiveCorrection, SteamEyeLog, TrackedEye)
-+                     EyeWeights, Fixation, LiveCorrection, SteamEyeLog, TrackedEye, build_argv)
+ from gazecal import (DEFAULT_MODEL, EYE_FOUND, EYE_LOST, FUSION, MODELS, STATE, Correction, EyeBridge,  # noqa: E402
+-                     EyeFallback, EyeWeights, Fusion, GazeLock, LiveCorrection, SteamEyeLog, TrackedEye)
++                     EyeFallback, EyeWeights, Fusion, GazeLock, LiveCorrection, SteamEyeLog, TrackedEye, build_argv)
  from gazecheck import Checks  # noqa: E402
+ 
+ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "models"))
+@@ -157,7 +157,6 @@ import catalog  # noqa: E402  (which eye net EYES_MODEL means: models/catalog.py
  
  REPO = Path(__file__).resolve().parents[1]
  HELPER = REPO / "gaze" / "build" / "ft-gaze"
@@ -32,7 +35,7 @@ index 10466c7..5da7302 100755
  ME = "\0ft_gazed"
  POINTER = "\0ft_pointer_helper"
  EYES_PROG = REPO / "gaze" / "tracker" / "ft-eyes"  # our own tracker
-@@ -513,9 +512,9 @@ class Service:
+@@ -617,9 +616,9 @@ class Service:
          env["XDG_RUNTIME_DIR"] = f"/run/user/{os.getuid()}"  # podman needs the real one
          # ft-gaze quits when its stdin closes: the one thing distrobox passes on.
          sources = self.wanted_sources()
@@ -45,8 +48,8 @@ index 10466c7..5da7302 100755
          self.proc_sources = sources
          os.set_blocking(self.proc.stdout.fileno(), False)
          os.set_blocking(self.proc.stderr.fileno(), False)
-@@ -560,9 +559,9 @@ class Service:
-             return
+@@ -666,9 +665,9 @@ class Service:
+         self.eyes_model = self.eyes_model_now()
          env = dict(os.environ)
          env["XDG_RUNTIME_DIR"] = f"/run/user/{os.getuid()}"
 -        self.eyes_proc = subprocess.Popen([str(IN_BOX), str(EYES_PYTHON), str(EYES_PROG), "-v", "--watch-stdin"],
@@ -59,7 +62,7 @@ index 10466c7..5da7302 100755
          self.sel.register(self.eyes_proc.stderr, selectors.EVENT_READ, "eyes")
          log("ft-eyes started" + ("" if EYES_CAMS.exists() else
 diff --git a/gaze/gazecal.py b/gaze/gazecal.py
-index 14b37b3..40c63a9 100644
+index 29557e7..7edbd07 100644
 --- a/gaze/gazecal.py
 +++ b/gaze/gazecal.py
 @@ -7,6 +7,7 @@ the tracker has lost the other), EyeWeights (how much each eye counts), and Stea
@@ -98,19 +101,19 @@ index 14b37b3..40c63a9 100644
  
  def px_from_deg(j, dy, dp):
 diff --git a/gaze/gazecheck.py b/gaze/gazecheck.py
-index f4e1d65..3aad5ca 100644
+index 4e285d0..343e425 100644
 --- a/gaze/gazecheck.py
 +++ b/gaze/gazecheck.py
-@@ -110,7 +110,7 @@ from pathlib import Path
+@@ -128,7 +128,7 @@ from pathlib import Path
  
  import fitcoach
  from fitcheck import MIN_REGION, FitCheck, wrap
--from gazecal import DEFAULT_MODEL, EYE_LOST, STATE, steady_samples
-+from gazecal import DEFAULT_MODEL, EYE_LOST, STATE, build_argv, steady_samples
+-from gazecal import DEFAULT_MODEL, EYE_LOST, FUSION, STATE, Fusion, steady_samples
++from gazecal import DEFAULT_MODEL, EYE_LOST, FUSION, STATE, Fusion, build_argv, steady_samples
  
  REPO = Path(__file__).resolve().parents[1]
  PANEL_PROG = REPO / "gaze" / "build" / "ft-gazepanel"
-@@ -321,8 +321,7 @@ class Checks:
+@@ -350,8 +350,7 @@ class Checks:
              return
          env = dict(os.environ)
          env["XDG_RUNTIME_DIR"] = f"/run/user/{os.getuid()}"

@@ -29,10 +29,10 @@ index 2035a69..e115f72 100755
      if systemctl --user -q is-active frametop-camd.service frametop-hands.service; then
        echo "stopping ft-handsctl's hand tracking (it has pinches and grips)"
 diff --git a/hands/rec/session.py b/hands/rec/session.py
-index b07850b..2a559e7 100755
+index eda1679..83cd04f 100755
 --- a/hands/rec/session.py
 +++ b/hands/rec/session.py
-@@ -374,6 +374,15 @@ def lighting_record(choice, ring):
+@@ -375,6 +375,15 @@ def lighting_record(choice, ring):
              "measured": measured, "ambient_ir": ambient_ir(ring), "ring": ring or {}}
  
  
@@ -48,7 +48,7 @@ index b07850b..2a559e7 100755
  def ring_alive(path=None):
      try:
          r = Ring(path or os.path.join(run_dir(), "cam-ring"))
-@@ -393,8 +402,7 @@ def start_camd(path=None, log=lambda line: None, stop=lambda: False, timeout=15.
+@@ -394,8 +403,7 @@ def start_camd(path=None, log=lambda line: None, stop=lambda: False, timeout=15.
          return False
      if not os.access(FT_CAMD, os.X_OK):
          raise RuntimeError("ft-camd isn't built: " + fix_hint("hands/build.sh"))

@@ -94,6 +94,16 @@ in
       '';
     };
 
+    keyboard.enable = mkOption {
+      type = types.bool;
+      default = true;
+      description = ''
+        Frametop's keyboard, Full Keyboard by TaiKeid: the frametop-keyboard service, which
+        starts and stops with SteamVR (keyboard/run.sh install). Off, Frametop's older
+        keyboard panel is used, and Steam's own keyboard stays.
+      '';
+    };
+
     pointer.enable = mkOption {
       type = types.bool;
       default = true;
@@ -300,6 +310,35 @@ in
           Install.WantedBy = [ "steamvr.service" ];
         };
 
+        # keyboard/frametop-keyboard.service, run directly instead of in the container.
+        systemd.user.services.frametop-keyboard = mkIf cfg.keyboard.enable {
+          Unit = {
+            Description = "Frametop keyboard: Full Keyboard for Steam Frame, by TaiKeid";
+            Documentation = [ "file://${tree}/keyboard/FRAMETOP.md" ];
+            # Needs SteamVR's IPC; it starts and stops with SteamVR.
+            After = [
+              "steamvr.service"
+              "frametop-input-relay.service"
+            ];
+            PartOf = [ "steamvr.service" ];
+            Requisite = [ "steamvr.service" ];
+          };
+          Service = {
+            # SteamOS's Mesa settings, as Full Keyboard's own startup unit has them.
+            EnvironmentFile = "-/usr/share/deckard/mesavars.sh";
+            ExecStartPre = "-${pkgs.procps}/bin/pkill -x framekeyboard";
+            ExecStart = "${tree}/keyboard/build/frametop/framekeyboard --frametop --data-dir ${tree}/keyboard";
+            ExecStopPost = "-${pkgs.procps}/bin/pkill -x framekeyboard";
+            # Quitting it from its own panel exits with 3: it stays closed until SteamVR starts again.
+            SuccessExitStatus = 3;
+            RestartPreventExitStatus = 3;
+            Restart = "on-failure";
+            RestartSec = 3;
+            TimeoutStopSec = 5;
+          };
+          Install.WantedBy = [ "steamvr.service" ];
+        };
+
         systemd.user.services.frametop-gaze = mkIf cfg.gaze.enable {
           Unit = {
             Description = "Frametop gaze service: the eye tracking, corrected, for the pointer's gaze mode";
@@ -329,11 +368,18 @@ in
             Documentation = [ "file://${tree}/hands/README.md" ];
             After = [ "steamvr.service" ];
             PartOf = [ "steamvr.service" ];
+            # Room for the quick restarts below, while XRService is away.
+            StartLimitIntervalSec = 30;
+            StartLimitBurst = 12;
           };
           Service = {
             ExecStart = "${tree}/hands/build/ft-camd --status 60";
             Restart = "always";
-            RestartSec = 5;
+            # 1 s at first, so hand tracking is back soon after a colour module hot plug, then
+            # longer, up to 5 s.
+            RestartSec = 1;
+            RestartSteps = 3;
+            RestartMaxDelaySec = 5;
             TimeoutStopSec = 5;
           };
         };
@@ -350,7 +396,12 @@ in
             PartOf = [ "steamvr.service" ];
           };
           Service = {
-            ExecStartPre = "-${pkgs.procps}/bin/pkill -x ft-hands";
+            ExecStartPre = [
+              "-${pkgs.procps}/bin/pkill -x ft-hands"
+              # A version picked by name (HANDS_MODEL) that isn't downloaded yet; into
+              # ~/.local/share/frametop/models, since the tree is read-only (patch 0011).
+              "-${pkgs.coreutils}/bin/timeout 60 ${pkg}/libexec/frametop/python3 ${tree}/models/ft-models auto hands"
+            ];
             ExecStart = "${tree}/hands/build/ft-hands --status 60";
             ExecStopPost = "-${pkgs.procps}/bin/pkill -x ft-hands";
             Restart = "always";
@@ -430,6 +481,7 @@ in
                 ++ lib.optionals (pkg.passthru.withSettingsApps or false) [
                   "ft-display-settings"
                   "ft-input-settings"
+                  "ft-tour"
                 ]
                 ++ lib.optional cfg.hands.recorder.enable "ft-handrec"
               )

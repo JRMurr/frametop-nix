@@ -61,12 +61,13 @@ stdenv.mkDerivation {
       $(pkg-config --cflags egl glesv2 gbm libdrm openvr)"
     $cxx -c -o build/vr.o vr.cpp
     $cxx -c -o build/keyboard.o keyboard.cpp
+    $cxx -c -o build/overlaytex.o overlaytex.cpp
     for f in handcut handrender handinput palmmenu grabthat steampanels handtest handmesh handskin \
       handrobot handview; do
       $cxx -c -o build/$f.o $f.cpp
     done
     vrlibs="$(pkg-config --libs egl glesv2 gbm openvr) ${vrclientDeps.ldflags}"
-    $CXX -o build/ft-screens build/compositor.o build/remote.o build/vr.o build/keyboard.o build/handcut.o \
+    $CXX -o build/ft-screens build/compositor.o build/remote.o build/vr.o build/keyboard.o build/overlaytex.o build/handcut.o \
       build/handrender.o build/handinput.o build/palmmenu.o build/grabthat.o build/steampanels.o \
       $(pkg-config --libs wlroots-0.20 wayland-server xkbcommon pixman-1) $vrlibs
     $CXX -o build/ft-handtest build/handtest.o build/handcut.o build/handrender.o $vrlibs

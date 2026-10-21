@@ -44,6 +44,7 @@
             ft-hands = callPackage ./packages/ft-hands.nix { };
             ft-camd = callPackage ./packages/ft-camd.nix { };
             ft-handpanel = callPackage ./packages/ft-handpanel.nix { };
+            ft-keyboard = callPackage ./packages/ft-keyboard.nix { };
             hand-models = callPackage ./packages/hand-models.nix { inherit frametop; };
             # Everything: scripts, Python tools, settings apps, and the programs above.
             frametop-apps = callPackage ./packages/frametop.nix { };
@@ -93,6 +94,8 @@
                 (cd session && python3 -m pytest -q -p no:cacheprovider test_config_links.py)
                 python3 scripts/test_conf_migrate.py
                 python3 ${./checks/test_native_desktop.py} ${packages.frametop-scripts}
+                # Model catalogs, run from the read-only tree (patch 0011: downloads go to XDG_DATA_HOME).
+                HOME=$TMPDIR python3 ${packages.frametop-scripts}/share/frametop/models/test/test_catalog.py
                 touch $out
               '';
           # The packaged tree runs gaze's and hand tracking's programs on the host
@@ -109,7 +112,7 @@
                 ];
               }
               ''
-                cp -r ${packages.frametop-scripts}/share/frametop/{gaze,hands,recorder} . && chmod -R u+w gaze hands recorder
+                cp -r ${packages.frametop-scripts}/share/frametop/{gaze,hands,models,recorder} . && chmod -R u+w gaze hands models recorder
                 export HOME=$TMPDIR
 
                 (cd gaze
