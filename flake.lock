@@ -3,11 +3,11 @@
     "frametop": {
       "flake": false,
       "locked": {
-        "lastModified": 1792468347,
-        "narHash": "sha256-MZqhfj9R8OrEnC0doIv1s3hLoIMmpkpTHgLlD35yRiA=",
+        "lastModified": 1793575319,
+        "narHash": "sha256-oT84akvCXjlXPwtaDVeH0cqsfxXy+a9V+LOQywUas+Y=",
         "owner": "Frametop",
         "repo": "frametop",
-        "rev": "5bc76fc562224b4d2b0943619410a2a4c0eaebd8",
+        "rev": "2a75d877d733be42a8eedd9f55c283b0f865756e",
         "type": "github"
       },
       "original": {
@@ -19,11 +19,11 @@
     },
     "nixpkgs": {
       "locked": {
-        "lastModified": 1790822859,
-        "narHash": "sha256-69xHQhAeMAD2wDXO7T2pcOZIF9Sga2W+JkmY2a11Ops=",
+        "lastModified": 1793540411,
+        "narHash": "sha256-fiPJ88izTVucjeo2EQ3jk4aWmLg03I1D4vxnX2QjEgE=",
         "owner": "NixOS",
         "repo": "nixpkgs",
-        "rev": "c59305bab2065cfecc4944690d9eedbb56f3a9fa",
+        "rev": "0bb2eedc20e4739f29e8045034f2828ad7054f8f",
         "type": "github"
       },
       "original": {
