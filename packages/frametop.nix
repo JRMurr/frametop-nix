@@ -172,7 +172,8 @@ stdenvNoCC.mkDerivation {
     mkdir -p $out/${share}-entries
     sed "s|@SESSION@|$tree/session/frametop-session.sh|" session/deckard-nested-desktop.desktop \
       > $out/${share}-entries/deckard-nested-desktop.desktop
-    for f in display-settings/ft-layout-reset display-settings/ft-screens-toggle \
+    # menu/ft-menu: the Frametop menu, SteamVR's one entry for the others (NotShowIn=gamescope).
+    for f in menu/ft-menu display-settings/ft-layout-reset display-settings/ft-screens-toggle \
       ${lib.optionalString withSettingsApps "display-settings/ft-display-settings input-settings/ft-input-settings hands/rec/ft-handrec tour/ft-tour"}; do
       sed "s|@REPO@|$tree|g" $f.desktop > $out/${share}-entries/$(basename $f).desktop
     done

@@ -475,6 +475,8 @@ in
               (name: lib.nameValuePair "applications/${name}.desktop" { source = "${entries}/${name}.desktop"; })
               (
                 [
+                  # The Frametop menu: SteamVR's Launch a program list shows only it, the rest go inside.
+                  "ft-menu"
                   "ft-layout-reset"
                   "ft-screens-toggle"
                 ]
