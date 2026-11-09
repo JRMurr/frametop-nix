@@ -22,6 +22,7 @@
   ft-screens,
   ft-pointer,
   ft-powerd,
+  ft-reset-timer,
   ft-gaze,
   ft-hands,
   ft-handpanel,
@@ -38,7 +39,7 @@
 }:
 
 let
-  # ft-floatd, Launch as Standalone, and spotwatch use dbus-python and PyGObject (GLib, Gio,
+  # ft-floatd, Launch as Standalone, frunner, and the Frametop menu use dbus-python and PyGObject (GLib, Gio,
   # GdkPixbuf). The typelib path is set for this interpreter only, not exported to the desktop.
   scriptPython = python3.withPackages (ps: [
     ps.dbus-python
@@ -94,8 +95,9 @@ stdenvNoCC.mkDerivation {
     mkdir -p $tree
     # voice/: Input Settings imports voice_commands (standard library); dictation itself isn't
     # packaged (TODO).
-    cp -r README.md LICENSE desktops.sh decoration display-settings docs float gaze hands input \
-      input-settings keyboard layout models recorder remote scripts session setup spotwatch steam tour voice $tree/
+    cp -r README.md LICENSE desktops.sh commands conf decoration display-settings docs float frunner gaze \
+      hands input input-settings keyboard layout menu models recorder remote scripts session setup steam \
+      tour voice $tree/
     mkdir -p $tree/pointer/helper $tree/screens/build $tree/power/build
     cp -r pointer/helper/actions $tree/pointer/helper/
 
@@ -106,6 +108,8 @@ stdenvNoCC.mkDerivation {
     mkdir -p $tree/pointer/helper/build
     ln -s ${ft-pointer}/lib/ft-pointer/bin/ft-pointer $tree/pointer/helper/build/ft-pointer
     ln -s ${ft-powerd}/bin/ft-powerd $tree/power/build/ft-powerd
+    mkdir -p $tree/layout/countdown/build
+    ln -s ${ft-reset-timer}/bin/ft-reset-timer $tree/layout/countdown/build/ft-reset-timer
     mkdir -p $tree/gaze/build
     ln -s ${ft-gaze}/lib/ft-gaze/bin/ft-gaze ${ft-gaze}/lib/ft-gaze/bin/ft-gazepanel $tree/gaze/build/
     mkdir -p $tree/gaze/tracker/build/venv/bin
@@ -135,14 +139,16 @@ stdenvNoCC.mkDerivation {
       --replace-fail "exec /usr/bin/python3 -I \"\$here/../float/ft-dashroute\"" "exec ${scriptPython}/bin/python3 -I \"\$here/../float/ft-dashroute\""
     substituteInPlace $tree/tour/ft-tour \
       --replace-fail '/usr/bin/python3 -I' '${scriptPython}/bin/python3 -I'
-    substituteInPlace $tree/spotwatch/ft-spotwatch \
+    substituteInPlace $tree/frunner/ft-frunner \
       --replace-fail 'exec python3 ' "exec $out/libexec/frametop/ft-python "
+    substituteInPlace $tree/menu/ft-menu \
+      --replace-fail 'exec /usr/bin/python3 -I' "exec $out/libexec/frametop/ft-python -I"
     for f in layout/ft-layout float/ft-floatd float/ft-float-apps; do
       substituteInPlace $tree/$f \
         --replace-fail '"''${FRAMETOP_PYTHON:-python3}"' "\"\''${FRAMETOP_PYTHON:-$out/libexec/frametop/ft-python}\""
     done
     # gaze/build's, hands/build's and screens/build's programs above are built for the host.
-    for f in gaze/gazecal.py hands/rec/session.py spotwatch/ft_spotwatch.py; do
+    for f in gaze/gazecal.py hands/rec/session.py frunner/ft_frunner.py; do
       substituteInPlace $tree/$f \
         --replace-fail '"FRAMETOP_HOST_BUILDS", "0"' '"FRAMETOP_HOST_BUILDS", "1"'
     done
@@ -185,12 +191,16 @@ stdenvNoCC.mkDerivation {
   # The settings apps' launchers run the app in the dev container. Here they run it directly
   # (same name, so the menu entries and anything calling them keep working).
   + lib.optionalString withSettingsApps ''
-    for app in display-settings/ft-display-settings:ft_display_settings.py \
-      input-settings/ft-input-settings:ft_input_settings.py hands/rec/ft-handrec:ft_handrec.py; do
-      launcher=$tree/''${app%%:*} script=$(dirname $tree/''${app%%:*})/''${app##*:}
+    # The hand recorder is the package hands.rec, run from the tree's root as upstream's launcher does.
+    for app in "display-settings/ft-display-settings:$tree/display-settings/ft_display_settings.py" \
+      "input-settings/ft-input-settings:$tree/input-settings/ft_input_settings.py" \
+      "hands/rec/ft-handrec:-P -m hands.rec.ft_handrec"; do
+      launcher=$tree/''${app%%:*} pythonPath=()
+      [[ $app == *" -m "* ]] && pythonPath=(--prefix PYTHONPATH : $tree)
       rm $launcher
       makeQtWrapper ${appPython}/bin/python3 $launcher \
-        --add-flags $script \
+        --add-flags "''${app#*:}" \
+        "''${pythonPath[@]}" \
         --set-default QT_QPA_PLATFORM 'wayland;xcb' \
         --suffix PATH : ${lib.makeBinPath [ zstd ]}
       ln -s ../${share}/''${app%%:*} $out/bin/$(basename $launcher)

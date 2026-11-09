@@ -38,6 +38,7 @@
             ft-screens = callPackage ./packages/ft-screens.nix { };
             ft-pointer = callPackage ./packages/ft-pointer.nix { };
             ft-powerd = callPackage ./packages/ft-powerd.nix { };
+            ft-reset-timer = callPackage ./packages/ft-reset-timer.nix { };
             ft-pointer-driver = callPackage ./packages/ft-pointer-driver.nix { };
             ft-gaze = callPackage ./packages/ft-gaze.nix { };
             ft-eyegrab = callPackage ./packages/ft-eyegrab.nix { };
@@ -112,8 +113,10 @@
                 ];
               }
               ''
-                cp -r ${packages.frametop-scripts}/share/frametop/{gaze,hands,models,recorder} . && chmod -R u+w gaze hands models recorder
+                cp -r ${packages.frametop-scripts}/share/frametop/{conf,gaze,hands,models,recorder} . && chmod -R u+w conf gaze hands models recorder
                 export HOME=$TMPDIR
+                # hands/rec imports hands and conf as packages from the tree's root (as ft-handrec runs it).
+                export PYTHONPATH=$PWD
 
                 (cd gaze
                   python3 -c 'import gazecal; assert gazecal.BUILDS == gazecal.Builds.HOST, gazecal.BUILDS'

@@ -8,7 +8,7 @@ There's a write up of a full frame setup using it in [this blog post](https://jo
 
 ## What works
 
-You get the multi-screen desktop (with spotwatch, its Meta+Space search), Frametop's keyboard (Full Keyboard), the input relay, the 3D mouse, the power service, both settings apps, and the Tour. Opt in to gaze mode (with SteamVR's eye tracker or Frametop's own), hand tracking (with the drawn hands, `ft-handview`, and upstream's pinned fine-tuned models), the hand recorder, and the Bluetooth fixes. The ones that need root go through [steamos-etc](#parts-that-need-root).
+You get the multi-screen desktop (with frunner, its Meta+Space search), Frametop's keyboard (Full Keyboard), the input relay, the 3D mouse, the power service, both settings apps, and the Tour. Opt in to gaze mode (with SteamVR's eye tracker or Frametop's own), hand tracking (with the drawn hands, `ft-handview`, and upstream's pinned fine-tuned models), the hand recorder, and the Bluetooth fixes. The ones that need root go through [steamos-etc](#parts-that-need-root).
 
 Remote desktop isn't packaged yet, it still enters upstream's `dev` container. Keep `REMOTE=0` in your config.
 
@@ -130,9 +130,10 @@ Upstream's scripts still work from the tree, for example `$(dirname $(readlink -
 
 | Package | What it is |
 | --- | --- |
-| `ft-screens` | The compositor (`screens/build.sh`), `ft-handtest`, `ft-handview` (the drawn hands), and `ft-spotpanel` (spotwatch's panel) |
+| `ft-screens` | The compositor (`screens/build.sh`), `ft-handtest`, `ft-handview` (the drawn hands), and `ft-spotpanel` (frunner's panel) |
 | `ft-pointer` | The 3D mouse's helper (`pointer/helper/build.sh`) |
 | `ft-powerd` | The power service (`power/build.sh`) |
+| `ft-reset-timer` | Reset Screen Layout's countdown (`layout/countdown/build.sh`) |
 | `ft-pointer-driver` | The `ft_pointer` SteamVR driver, laid out how SteamVR expects (`share/frametop/ft_pointer`) |
 | `ft-gaze` | Gaze mode's `ft-gaze` and calibration panel `ft-gazepanel` (`gaze/build.sh`) |
 | `ft-eyegrab` | Frametop's own eye tracker's frame grabber (`gaze/tracker/build.sh`) |
@@ -148,7 +149,7 @@ Upstream's scripts still work from the tree, for example `$(dirname $(readlink -
 
 `share/frametop` mirrors the upstream repo. The scripts find each other by relative path (`$here/../layout/ft-layout`) and ft-screens finds `ft-layout` from its own path, so each program sits where upstream's build would put it (`screens/build/ft-screens`). The settings apps live in the same tree since they import `ft_layout` and call `desktops.sh` by relative path.
 
-Upstream's scripts read four env vars (added by [patches](#patches) 0001, 0004, and 0005): `FRAMETOP_SCREENS_BIN` (run ft-screens on the host, not in the container), `FRAMETOP_PYTHON`, `FRAMETOP_STARTPLASMA`, and `FRAMETOP_HOST_BUILDS` (run gaze's, hand tracking's, and spotwatch's programs on the host). The package defaults them to store paths but exports nothing, so the host Plasma the session starts gets a clean environment (no `LD_LIBRARY_PATH`, no Qt paths).
+Upstream's scripts read four env vars (added by [patches](#patches) 0001, 0004, and 0005): `FRAMETOP_SCREENS_BIN` (run ft-screens on the host, not in the container), `FRAMETOP_PYTHON`, `FRAMETOP_STARTPLASMA`, and `FRAMETOP_HOST_BUILDS` (run gaze's, hand tracking's, and frunner's programs on the host). The package defaults them to store paths but exports nothing, so the host Plasma the session starts gets a clean environment (no `LD_LIBRARY_PATH`, no Qt paths).
 
 ft-screens (EGL, GLES, GBM) has `/run/opengl-driver/lib` first in its RUNPATH. The settings apps find the same drivers through nixpkgs' libglvnd, which looks there too.
 
@@ -180,7 +181,7 @@ CI (`.github/workflows/build.yml`) runs on PRs and pushes to main, natively on G
 
 | Patch | Why |
 | --- | --- |
-| 0001 env hooks | `FRAMETOP_SCREENS_BIN`, `FRAMETOP_PYTHON`, `FRAMETOP_STARTPLASMA`, so the package can point the scripts at store paths and run ft-screens on the host. Also a writable decoration copy, and `host_command` outside distrobox |
+| 0001 env hooks | `FRAMETOP_SCREENS_BIN`, `FRAMETOP_PYTHON`, `FRAMETOP_STARTPLASMA`, so the package can point the scripts at store paths and run ft-screens on the host. Also a writable decoration copy, and `host_command` (`conf/fthost.py`) outside distrobox |
 | 0002 SHARE_CONFIG | `session/config_links.py`: apps in the desktop keep your normal config (`programs.frametop.shareConfig`) |
 | 0003 update-check | Checks that Nix-built programs link everything SteamVR's `vrclient.so` needs |
 | 0004 gaze host builds | `FRAMETOP_HOST_BUILDS`: the gaze service runs `ft-gaze`, `ft-gazepanel`, and `ft-eyes` on the host, not in the container |
@@ -188,7 +189,7 @@ CI (`.github/workflows/build.yml`) runs on PRs and pushes to main, natively on G
 | 0006 conf-migrate | `scripts/conf-migrate.sh` stops at an error instead of emptying `frametop.conf` |
 | 0007 hands session | `ft-handsctl` and `ft-cutouts` reach the real user session from a terminal in the Frametop desktop |
 | 0008 hands caps | `ft-cutouts` and the hand recorder check `ft-camd`'s capabilities on the file, not the tree's link to it |
-| 0009 spotwatch host builds | `FRAMETOP_HOST_BUILDS`: spotwatch runs `ft-spotpanel` on the host |
+| 0009 frunner host builds | `FRAMETOP_HOST_BUILDS`: frunner runs `ft-spotpanel` on the host |
 | 0010 handsmode caps | The same caps check for `hands/handsmode.py` (Input Settings' Hands page) |
 | 0011 models home | Model versions picked by name download to `$XDG_DATA_HOME/frametop/models` when the tree is read-only, and `ft-hands` looks there |
 

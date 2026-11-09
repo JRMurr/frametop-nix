@@ -1,7 +1,8 @@
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
 From: John Murray <5672686+JRMurr@users.noreply.github.com>
 Date: Mon, 5 Oct 2026 23:48:43 -0400
-Subject: [PATCH] Hands: ft-handsctl and ft-cutouts reach the real user session
+Subject: [PATCH 07/11] Hands: ft-handsctl and ft-cutouts reach the real user
+ session
 
 From a terminal in a nested desktop, systemctl --user found the desktop's private runtime
 folder, so they said SteamVR isn't running. They now use /run/user/UID, as scripts/_env.sh does.
@@ -27,7 +28,7 @@ index 4a84b13..2035a69 100755
  camd=frametop-cutouts-camd.service hands=frametop-cutouts-hands.service
  # FRAMETOP_HOST_BUILDS=1: build/ft-hands is built for the host (frametop-nix), not the dev container.
 diff --git a/hands/ft-handsctl b/hands/ft-handsctl
-index 73f2962..687a518 100755
+index 1a3d2c4..a6ca3b9 100755
 --- a/hands/ft-handsctl
 +++ b/hands/ft-handsctl
 @@ -13,6 +13,10 @@

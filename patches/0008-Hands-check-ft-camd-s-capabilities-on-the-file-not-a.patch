@@ -1,8 +1,8 @@
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
 From: John Murray <5672686+JRMurr@users.noreply.github.com>
 Date: Mon, 5 Oct 2026 23:57:03 -0400
-Subject: [PATCH] Hands: check ft-camd's capabilities on the file, not a link
- to it
+Subject: [PATCH 08/11] Hands: check ft-camd's capabilities on the file, not a
+ link to it
 
 getcap shows nothing for a symbolic link, so with hands/build/ft-camd a link to the copy that
 has them (frametop-nix's tree), ft-cutouts and the hand recorder said they were missing.
@@ -29,10 +29,10 @@ index 2035a69..e115f72 100755
      if systemctl --user -q is-active frametop-camd.service frametop-hands.service; then
        echo "stopping ft-handsctl's hand tracking (it has pinches and grips)"
 diff --git a/hands/rec/session.py b/hands/rec/session.py
-index eda1679..83cd04f 100755
+index 81fc949..50b9570 100755
 --- a/hands/rec/session.py
 +++ b/hands/rec/session.py
-@@ -375,6 +375,15 @@ def lighting_record(choice, ring):
+@@ -371,6 +371,15 @@ def lighting_record(choice, ring):
              "measured": measured, "ambient_ir": ambient_ir(ring), "ring": ring or {}}
  
  
@@ -48,7 +48,7 @@ index eda1679..83cd04f 100755
  def ring_alive(path=None):
      try:
          r = Ring(path or os.path.join(run_dir(), "cam-ring"))
-@@ -394,8 +403,7 @@ def start_camd(path=None, log=lambda line: None, stop=lambda: False, timeout=15.
+@@ -390,8 +399,7 @@ def start_camd(path=None, log=lambda line: None, stop=lambda: False, timeout=15.
          return False
      if not os.access(FT_CAMD, os.X_OK):
          raise RuntimeError("ft-camd isn't built: " + fix_hint("hands/build.sh"))

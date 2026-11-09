@@ -1,8 +1,8 @@
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
 From: John Murray <5672686+JRMurr@users.noreply.github.com>
 Date: Thu, 15 Oct 2026 22:39:53 +0000
-Subject: [PATCH] Hands: handsmode checks ft-camd's capabilities on the file,
- not a link
+Subject: [PATCH 10/11] Hands: handsmode checks ft-camd's capabilities on the
+ file, not a link
 
 The unit's ExecStart is hands/build/ft-camd, which in frametop-nix's tree links to the copy
 that has them, so Frametop Input Settings' Hands page said they were missing.
@@ -11,10 +11,10 @@ that has them, so Frametop Input Settings' Hands page said they were missing.
  1 file changed, 3 insertions(+), 2 deletions(-)
 
 diff --git a/hands/handsmode.py b/hands/handsmode.py
-index ff2c6a3..765e4f7 100755
+index a2e56dd..72e94bc 100755
 --- a/hands/handsmode.py
 +++ b/hands/handsmode.py
-@@ -202,10 +202,11 @@ class Host:
+@@ -188,10 +188,11 @@ class Host:
          return os.path.exists(path)
  
      def caps(self, path):

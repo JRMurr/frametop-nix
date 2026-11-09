@@ -1,5 +1,5 @@
 # ft-screens, Frametop's wlroots compositor (screens/build.sh), ft-handtest, ft-handview (the
-# hands drawn with Room View off), and ft-spotpanel (spotwatch's search panel).
+# hands drawn with Room View off), and ft-spotpanel (frunner's search panel).
 # Linked against nixpkgs' openvr (the same v2.15.6 header screens/build.sh pins) instead of
 # /opt/steamvr's libopenvr_api; libopenvr_api finds the runtime through
 # ~/.config/openvr/openvrpaths.vrpath. GL comes from /run/opengl-driver (RUNPATH, via
@@ -8,6 +8,7 @@
   lib,
   stdenv,
   pkg-config,
+  python3,
   autoAddDriverRunpath,
   wlroots_0_20,
   wayland,
@@ -19,7 +20,7 @@
   libgbm,
   openvr,
   vrclientDeps,
-  # keyboard.cpp's key labels, ft-handview --snapshot's PNGs.
+  # label.cpp's panel labels, ft-handview --snapshot's PNGs.
   stb,
   src,
 }:
@@ -32,6 +33,7 @@ stdenv.mkDerivation {
 
   nativeBuildInputs = [
     pkg-config
+    python3 # tools/hand-asset.py
     autoAddDriverRunpath
   ];
   buildInputs = [
@@ -60,20 +62,22 @@ stdenv.mkDerivation {
     cxx="$CXX -std=c++17 -O2 -Wall -Wno-missing-field-initializers -Ibuild/include \
       $(pkg-config --cflags egl glesv2 gbm libdrm openvr)"
     $cxx -c -o build/vr.o vr.cpp
-    $cxx -c -o build/keyboard.o keyboard.cpp
+    $cxx -c -o build/label.o label.cpp
     $cxx -c -o build/overlaytex.o overlaytex.cpp
-    for f in handcut handrender handinput palmmenu grabthat steampanels handtest handmesh handskin \
+    for f in handcut handrender rendernode handinput palmmenu grabthat steampanels handtest handmesh handskin \
       handrobot handview; do
       $cxx -c -o build/$f.o $f.cpp
     done
+    python3 -I tools/hand-asset.py --cpp build/handasset.cpp >/dev/null
+    $cxx -I. -c -o build/handasset.o build/handasset.cpp
     vrlibs="$(pkg-config --libs egl glesv2 gbm openvr) ${vrclientDeps.ldflags}"
-    $CXX -o build/ft-screens build/compositor.o build/remote.o build/vr.o build/keyboard.o build/overlaytex.o build/handcut.o \
-      build/handrender.o build/handinput.o build/palmmenu.o build/grabthat.o build/steampanels.o \
+    $CXX -o build/ft-screens build/compositor.o build/remote.o build/vr.o build/label.o build/overlaytex.o build/handcut.o \
+      build/handrender.o build/rendernode.o build/handinput.o build/palmmenu.o build/grabthat.o build/steampanels.o \
       $(pkg-config --libs wlroots-0.20 wayland-server xkbcommon pixman-1) $vrlibs
-    $CXX -o build/ft-handtest build/handtest.o build/handcut.o build/handrender.o $vrlibs
-    $CXX -o build/ft-handview build/handview.o build/handmesh.o build/handskin.o build/handrobot.o \
-      build/handcut.o build/handrender.o $vrlibs
-    $cxx -o build/ft-spotpanel ../spotwatch/ft-spotpanel.cpp $(pkg-config --libs gbm libdrm openvr) \
+    $CXX -o build/ft-handtest build/handtest.o build/handcut.o build/handrender.o build/rendernode.o $vrlibs
+    $CXX -o build/ft-handview build/handview.o build/handmesh.o build/handskin.o build/handasset.o \
+      build/handrobot.o build/handcut.o build/handrender.o build/rendernode.o $vrlibs
+    $cxx -o build/ft-spotpanel ../frunner/ft-spotpanel.cpp $(pkg-config --libs gbm libdrm openvr) \
       ${vrclientDeps.ldflags} -lpthread
     runHook postBuild
   '';

@@ -1,8 +1,8 @@
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
 From: John Murray <5672686+JRMurr@users.noreply.github.com>
 Date: Mon, 5 Oct 2026 21:59:17 -0400
-Subject: [PATCH] Gaze: FRAMETOP_HOST_BUILDS runs gaze/build's programs on the
- host
+Subject: [PATCH 04/11] Gaze: FRAMETOP_HOST_BUILDS runs gaze/build's programs
+ on the host
 
 ft-gazed and gazecheck.py ran ft-gaze and ft-gazepanel in the dev container.
 With FRAMETOP_HOST_BUILDS=1 they run directly (gazecal.build_argv).
@@ -15,7 +15,7 @@ With FRAMETOP_HOST_BUILDS=1 they run directly (gazecal.build_argv).
  create mode 100644 gaze/test_gazecal_builds.py
 
 diff --git a/gaze/ft-gazed b/gaze/ft-gazed
-index 93aa877..cbb70b4 100755
+index 00ede20..118e02a 100755
 --- a/gaze/ft-gazed
 +++ b/gaze/ft-gazed
 @@ -149,7 +149,7 @@ from pathlib import Path
@@ -27,7 +27,7 @@ index 93aa877..cbb70b4 100755
  from gazecheck import Checks  # noqa: E402
  
  sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "models"))
-@@ -157,7 +157,6 @@ import catalog  # noqa: E402  (which eye net EYES_MODEL means: models/catalog.py
+@@ -160,7 +160,6 @@ import ft_store  # noqa: E402  (JSON files written safely)
  
  REPO = Path(__file__).resolve().parents[1]
  HELPER = REPO / "gaze" / "build" / "ft-gaze"
@@ -35,7 +35,7 @@ index 93aa877..cbb70b4 100755
  ME = "\0ft_gazed"
  POINTER = "\0ft_pointer_helper"
  EYES_PROG = REPO / "gaze" / "tracker" / "ft-eyes"  # our own tracker
-@@ -617,9 +616,9 @@ class Service:
+@@ -600,9 +599,9 @@ class Service:
          env["XDG_RUNTIME_DIR"] = f"/run/user/{os.getuid()}"  # podman needs the real one
          # ft-gaze quits when its stdin closes: the one thing distrobox passes on.
          sources = self.wanted_sources()
@@ -48,7 +48,7 @@ index 93aa877..cbb70b4 100755
          self.proc_sources = sources
          os.set_blocking(self.proc.stdout.fileno(), False)
          os.set_blocking(self.proc.stderr.fileno(), False)
-@@ -666,9 +665,9 @@ class Service:
+@@ -649,9 +648,9 @@ class Service:
          self.eyes_model = self.eyes_model_now()
          env = dict(os.environ)
          env["XDG_RUNTIME_DIR"] = f"/run/user/{os.getuid()}"
@@ -62,7 +62,7 @@ index 93aa877..cbb70b4 100755
          self.sel.register(self.eyes_proc.stderr, selectors.EVENT_READ, "eyes")
          log("ft-eyes started" + ("" if EYES_CAMS.exists() else
 diff --git a/gaze/gazecal.py b/gaze/gazecal.py
-index 29557e7..7edbd07 100644
+index 4a87d21..76ab692 100644
 --- a/gaze/gazecal.py
 +++ b/gaze/gazecal.py
 @@ -7,6 +7,7 @@ the tracker has lost the other), EyeWeights (how much each eye counts), and Stea
@@ -73,9 +73,9 @@ index 29557e7..7edbd07 100644
  import json
  import math
  import os
-@@ -16,6 +17,26 @@ from pathlib import Path
- 
- STATE = Path.home() / ".local" / "state" / "frametop" / "gaze"
+@@ -46,6 +47,26 @@ def save_calibration(models, model, how, live=None, calibrated_at=None, path=Non
+         ft_store.write_json(path, d, indent=1, newline=False)
+     return d
  
 +
 +# --- Where gaze/build's programs run ------------------------------------------------
@@ -101,19 +101,19 @@ index 29557e7..7edbd07 100644
  
  def px_from_deg(j, dy, dp):
 diff --git a/gaze/gazecheck.py b/gaze/gazecheck.py
-index 4e285d0..343e425 100644
+index 57c6be7..ea7c023 100644
 --- a/gaze/gazecheck.py
 +++ b/gaze/gazecheck.py
-@@ -128,7 +128,7 @@ from pathlib import Path
+@@ -129,7 +129,7 @@ from pathlib import Path
  
  import fitcoach
  from fitcheck import MIN_REGION, FitCheck, wrap
--from gazecal import DEFAULT_MODEL, EYE_LOST, FUSION, STATE, Fusion, steady_samples
-+from gazecal import DEFAULT_MODEL, EYE_LOST, FUSION, STATE, Fusion, build_argv, steady_samples
+-from gazecal import DEFAULT_MODEL, EYE_LOST, FUSION, STATE, Fusion, save_calibration, steady_samples
++from gazecal import DEFAULT_MODEL, EYE_LOST, FUSION, STATE, Fusion, build_argv, save_calibration, steady_samples
  
  REPO = Path(__file__).resolve().parents[1]
- PANEL_PROG = REPO / "gaze" / "build" / "ft-gazepanel"
-@@ -350,8 +350,7 @@ class Checks:
+ sys.path.insert(0, str(REPO / "conf"))
+@@ -388,8 +388,7 @@ class Checks:
              return
          env = dict(os.environ)
          env["XDG_RUNTIME_DIR"] = f"/run/user/{os.getuid()}"
