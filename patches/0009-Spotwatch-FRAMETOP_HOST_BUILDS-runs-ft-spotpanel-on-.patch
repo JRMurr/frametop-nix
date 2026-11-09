@@ -1,17 +1,18 @@
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
 From: John Murray <5672686+JRMurr@users.noreply.github.com>
 Date: Thu, 15 Oct 2026 22:39:46 +0000
-Subject: [PATCH] Spotwatch: FRAMETOP_HOST_BUILDS runs ft-spotpanel on the host
+Subject: [PATCH 09/11] Spotwatch: FRAMETOP_HOST_BUILDS runs ft-spotpanel on
+ the host
 
 ---
- spotwatch/ft_spotwatch.py | 4 +++-
+ frunner/ft_frunner.py | 4 +++-
  1 file changed, 3 insertions(+), 1 deletion(-)
 
-diff --git a/spotwatch/ft_spotwatch.py b/spotwatch/ft_spotwatch.py
-index 38c7b1b..bcc22b2 100644
---- a/spotwatch/ft_spotwatch.py
-+++ b/spotwatch/ft_spotwatch.py
-@@ -64,6 +64,8 @@ import spotsearch  # noqa: E402
+diff --git a/frunner/ft_frunner.py b/frunner/ft_frunner.py
+index 26b0f4d..6bd09b6 100644
+--- a/frunner/ft_frunner.py
++++ b/frunner/ft_frunner.py
+@@ -72,6 +72,8 @@ import spotsearch  # noqa: E402
  
  PANEL = os.path.join(REPO, "screens", "build", "ft-spotpanel")
  IN_BOX = os.path.join(REPO, "scripts", "in-box")  # runs a program in the container it was built in
@@ -19,8 +20,8 @@ index 38c7b1b..bcc22b2 100644
 +HOST_BUILDS = os.environ.get("FRAMETOP_HOST_BUILDS", "0") == "1"
  FT_LAYOUT = os.path.join(REPO, "layout", "ft-layout")
  STANDALONE_ACTION = "frametop-standalone"  # Launch as Standalone (float/ft_apps.py): what Enter does anyway
- USAGE_PATH = os.path.expanduser("~/.config/frametop-spotwatch.json")
-@@ -371,7 +373,7 @@ class Spotwatch:
+ USAGE_PATH = os.path.expanduser("~/.config/frametop-frunner.json")
+@@ -385,7 +387,7 @@ class Frunner:
              log(f"ft-spotpanel isn't built: run {REPO}/screens/build.sh")
              return False
          env = dict(os.environ, XDG_RUNTIME_DIR=f"/run/user/{os.getuid()}")  # podman needs the real one

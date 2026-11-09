@@ -1,18 +1,18 @@
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
 From: John Murray <5672686+JRMurr@users.noreply.github.com>
 Date: Sun, 4 Oct 2026 11:21:18 -0400
-Subject: [PATCH] update-check: check vrclient.so's libraries for Nix-built
- programs
+Subject: [PATCH 03/11] update-check: check vrclient.so's libraries for
+ Nix-built programs
 
 ---
  scripts/update-check.py | 58 ++++++++++++++++++++++++++++++++++++++++-
  1 file changed, 57 insertions(+), 1 deletion(-)
 
 diff --git a/scripts/update-check.py b/scripts/update-check.py
-index 4d74c86..5226bdb 100755
+index 2976805..0ed0ebb 100755
 --- a/scripts/update-check.py
 +++ b/scripts/update-check.py
-@@ -351,6 +351,8 @@ def check_host():
+@@ -365,6 +365,8 @@ def check_host():
              report("warn", "Native Desktop", "the launcher's copy no longer matches SteamOS's Desktop entry; "
                     "./desktops.sh install refreshes it")
  
@@ -21,7 +21,7 @@ index 4d74c86..5226bdb 100755
      if systemctl("is-enabled", "frametop-power") == "enabled":
          if os.access(BACKLIGHT, os.W_OK):
              report("ok", "backlight", "ft-powerd can turn the displays off")
-@@ -450,6 +452,59 @@ def launcher_keys(path):
+@@ -464,6 +466,59 @@ def launcher_keys(path):
      return {k: v for k, v in pairs if k != "X-Steam-Special" and k.split("[")[0] != "Name"}
  
  
@@ -81,7 +81,7 @@ index 4d74c86..5226bdb 100755
  def launcher_session():
      try:
          with open(LAUNCHER) as f:
-@@ -467,7 +522,8 @@ def installed_binaries():
+@@ -481,7 +536,8 @@ def installed_binaries():
      for unit in UNITS:
          argv = re.search(r"argv\[\]=([^;]*)", systemctl("show", "-p", "ExecStart", "--value", unit + ".service"))
          for arg in (argv.group(1).split() if argv else []):

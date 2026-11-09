@@ -1,7 +1,8 @@
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
 From: John Murray <5672686+JRMurr@users.noreply.github.com>
 Date: Sun, 4 Oct 2026 11:21:18 -0400
-Subject: [PATCH] SHARE_CONFIG: apps in the desktop keep the user's config
+Subject: [PATCH 02/11] SHARE_CONFIG: apps in the desktop keep the user's
+ config
 
 session/config_links.py links ~/.config and ~/.local/state into the desktop's
 own folders, except Plasma's and KWin's files.
@@ -140,29 +141,29 @@ index 0000000..0ce479b
 +if __name__ == "__main__":
 +    main()
 diff --git a/session/frametop-session.sh b/session/frametop-session.sh
-index b91b1bc..a8ab144 100755
+index 3a4cdb8..bd697da 100755
 --- a/session/frametop-session.sh
 +++ b/session/frametop-session.sh
-@@ -34,7 +34,7 @@ for var in $(compgen -e); do
+@@ -38,7 +38,7 @@ for var in $(compgen -e); do
  done
  
  conf=$HOME/.config/frametop.conf
 -BACKEND=screens SCREENS=2 WIDTH=1920 HEIGHT=1080 PHYS_WIDTH=1.6 REMOTE=0 FLOAT_SLOTS=16 FLOAT_MARGIN=300
 +BACKEND=screens SCREENS=2 WIDTH=1920 HEIGHT=1080 PHYS_WIDTH=1.6 REMOTE=0 FLOAT_SLOTS=16 FLOAT_MARGIN=300 SHARE_CONFIG=0
- NOTIFY_FORWARD=auto
- # shellcheck disable=SC1090
- [ -f "$conf" ] && . "$conf"
-@@ -45,6 +45,7 @@ height=${FT_HEIGHT:-$HEIGHT}
- phys_width=${FT_PHYS_WIDTH:-$PHYS_WIDTH}
+ NOTIFY_FORWARD=auto FIREFOX_TITLEBAR=kwin
+ # The file is shell, sourced, but only when every line is in its grammar (docs/config.md). A line
+ # outside it (a value with a space or $(...) in it, "KEY = value") is one bash runs as a command:
+@@ -65,6 +65,7 @@ phys_width=${FT_PHYS_WIDTH:-$PHYS_WIDTH}
  remote=${FT_REMOTE:-$REMOTE}
+ streams_only=${FT_STREAMS_ONLY:-0}
  notify_forward=${FT_NOTIFY_FORWARD:-$NOTIFY_FORWARD}
 +share_config=${FT_SHARE_CONFIG:-$SHARE_CONFIG}
  # Floating windows (screens backend): KWin gets this many spare outputs after the screens,
  # and ft-floatd floats a window on each (docs/floating-windows.md). Changing it takes a
  # desktop restart.
-@@ -221,6 +222,13 @@ kde_portals=/usr/share/xdg-desktop-portal/kde-portals.conf
- export XDG_DESKTOP_PORTAL_DIR=$portals
- export XDG_DATA_DIRS=$runtime/share:${XDG_DATA_DIRS:-/usr/local/share:/usr/share}
+@@ -280,6 +281,13 @@ export XDG_DATA_DIRS=$runtime/share:${XDG_DATA_DIRS:-/usr/local/share:/usr/share
+ # leaves it that choice (its own title bar by default).
+ [ "$FIREFOX_TITLEBAR" = firefox ] || export MOZ_GTK_TITLEBAR_DECORATION=${MOZ_GTK_TITLEBAR_DECORATION:-none}
  
 +# Apps started here inherit both. With SHARE_CONFIG=1, everything in them but Plasma's own
 +# files links to the real folders: the apps keep their config, logins, and history.
@@ -175,13 +176,13 @@ index b91b1bc..a8ab144 100755
  # KWin and the apps take it over this desktop's own setting. SteamOS had no theme of that
  # name, so they fell back to Breeze; SteamOS 0.4 has one (holo-cursors: Steam's arrow, the
 diff --git a/session/frametop.conf.example b/session/frametop.conf.example
-index 4ec8979..b253995 100644
+index 5d22b15..0fd5c73 100644
 --- a/session/frametop.conf.example
 +++ b/session/frametop.conf.example
-@@ -11,6 +11,7 @@ FLOAT_SLOTS=16     # screens backend: how many windows can float in VR at once (
- FLOAT_MARGIN=300   # floating windows: pixels around each window on its output, so menus have room past its edges
- DASHBOARD_APPS=steamvr # apps from the SteamVR dashboard's Launch a program list: steamvr = SteamVR windows | frametop = Frametop floating windows (SteamVR's when the desktop isn't running, Frametop is paused, or every floating window is in use; applies at once)
+@@ -14,6 +14,7 @@ DASHBOARD_APPS=steamvr # apps from the SteamVR dashboard's Launch a program list
  NOTIFY_FORWARD=auto # the desktop's notifications go to the Steam session's notification server (e.g. VR toasts), Plasma's popups off: auto = unless that's SteamOS's steam_notif_daemon | on | off (restart the desktop after a change)
+ FIREFOX_TITLEBAR=kwin # Firefox in the desktop: kwin = KWin's title bar, with Frametop's float button | firefox = its own, tabs in the title bar (restart the desktop after a change)
+ AUTOSTART=0        # 1 = the desktop starts whenever SteamVR does, so at boot too (frametop-autostart.service; Start with SteamVR on Display Settings' Power tab)
 +SHARE_CONFIG=0     # 1 = apps in the desktop use your normal ~/.config and ~/.local/state (all but Plasma's own files); restart the desktop after a change
  POINTER=0          # 1 = the mouse drives the universal 3D pointer (ft_pointer driver) instead of a plain mouse
  POINTER_SENSITIVITY=0.03   # degrees per mouse count

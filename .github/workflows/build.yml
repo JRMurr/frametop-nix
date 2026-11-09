@@ -51,7 +51,7 @@ jobs:
       - name: Build every package
         run: |
           nix build -L \
-            .#ft-screens .#ft-pointer .#ft-powerd .#ft-pointer-driver \
+            .#ft-screens .#ft-pointer .#ft-powerd .#ft-reset-timer .#ft-pointer-driver \
             .#ft-gaze .#ft-eyegrab .#ft-hands .#ft-camd .#ft-handpanel .#ft-keyboard \
             .#frametop-scripts .#frametop-apps
 
