@@ -179,7 +179,8 @@ in
         Gaze mode (experimental): the 3D mouse's pointer goes where you look. The
         frametop-gaze service (ft-gazed), which starts and stops with SteamVR, with SteamVR's
         eye tracker. Turn it on and calibrate on the Gaze page of Frametop Input Settings.
-        Needs pointer.enable.
+        Also turns on steamvr.gazeDepEyeToHeadEnable (gaze/eye-rate.py), so the eye cameras
+        run at 90 fps from SteamVR's next start. Needs pointer.enable.
       '';
     };
 
@@ -538,6 +539,15 @@ in
               fi
             ''
           );
+
+          # SteamVR's eye cameras at 90 fps, not 15, for gaze mode (gaze/run.sh install does
+          # it): at 15 our tracker can't calibrate. It counts from SteamVR's next start. Off
+          # turns it back off only if this turned it on. eye-rate.py needs pgrep.
+          frametopEyeRate = lib.hm.dag.entryAfter [ "linkGeneration" ] ''
+            run env PATH=${lib.makeBinPath [ pkgs.procps ]}:"$PATH" ${tree}/gaze/eye-rate.py \
+              ${if cfg.gaze.enable then "on" else "off"} \
+              || warnEcho "frametop: gaze/eye-rate.py failed"
+          '';
 
           # Each profile's launcher entry (they point into the store, so they're rewritten for
           # each generation) and the Frametop desktop's global shortcuts, as
